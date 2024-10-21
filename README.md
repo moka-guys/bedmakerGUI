@@ -139,9 +139,6 @@ docker-compose up
 - `create_user.py`: Script to create admin users (can also be accessed via the web app)
 - `run.py`: Application entry point
 
-## Contributing
-
-Please read the CONTRIBUTING.md file for details on our code of conduct and the process for submitting pull requests.
 
 ## License
 
@@ -152,5 +149,6 @@ This project is licensed under the [MIT License](LICENSE).
 - Developed by the Synnovis Bioinformatics Team @ Guy's and St Thomas' NHS Foundation Trust (2024)
 - Uses the IGV.js library for genomic visualization
 - Integrates with PanelApp for gene panel data
+- Utilises Ensembl VEP and TARK RESTful APIs for metadata
 
 For more information, please contact the development team or refer to the internal documentation.
