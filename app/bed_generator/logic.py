@@ -14,7 +14,7 @@ Functions:
 from app import db
 from app.models import Settings
 from .utils import process_identifiers, process_coordinates
-from .bed_generator import create_raw_bed, create_data_bed, create_sambamba_bed, create_exome_depth_bed, create_cnv_bed
+from .bed_generator import BedGenerator
 import re
 import json
 from flask import session
@@ -44,6 +44,7 @@ def process_form_data(form: FlaskForm) -> Tuple[List[Dict[str, Any]], List[str],
         'include5UTR': form.include5UTR.data,
         'include3UTR': form.include3UTR.data
     }
+    
     if form.identifiers.data:
         processed_results, no_data = process_identifiers(
             form.identifiers.data.split(),
@@ -51,21 +52,13 @@ def process_form_data(form: FlaskForm) -> Tuple[List[Dict[str, Any]], List[str],
             form.include5UTR.data,
             form.include3UTR.data
         )
-        # Flatten the processed results
-        for result in processed_results:
-            if isinstance(result, list):
-                results.extend(result)
-            else:
-                results.append(result)
+        results.extend([r for r in processed_results if isinstance(r, dict)])
         no_data_identifiers.extend(no_data)
+    
     if form.coordinates.data:
         processed_coordinates = process_coordinates(form.coordinates.data.split('\n'), form.assembly.data)
-        # Flatten the processed coordinates
-        for coord in processed_coordinates:
-            if isinstance(coord, list):
-                results.extend(coord)
-            else:
-                results.append(coord)
+        results.extend([r for r in processed_coordinates if isinstance(r, dict)])
+    
     return results, no_data_identifiers, initial_query
 
 def store_results_in_session(results: List[Dict[str, Any]], no_data_identifiers: List[str], assembly: str, initial_query: Dict[str, Any]) -> None:
@@ -145,18 +138,14 @@ def get_mane_plus_clinical_identifiers(results: List[Dict[str, Any]]) -> Set[str
 
 def update_settings(form):
     settings = Settings.get_settings()
-    settings.data_padding = form.data_padding.data
-    settings.sambamba_padding = form.sambamba_padding.data
-    settings.exomeDepth_padding = form.exomeDepth_padding.data
-    settings.cnv_padding = form.cnv_padding.data
+    for field in ['data_padding', 'sambamba_padding', 'exomeDepth_padding', 'cnv_padding']:
+        setattr(settings, field, getattr(form, field).data)
     db.session.commit()
 
 def populate_form_with_settings(form):
     settings = Settings.get_settings()
-    form.data_padding.data = settings.data_padding
-    form.sambamba_padding.data = settings.sambamba_padding
-    form.exomeDepth_padding.data = settings.exomeDepth_padding
-    form.cnv_padding.data = settings.cnv_padding
+    for field in ['data_padding', 'sambamba_padding', 'exomeDepth_padding', 'cnv_padding']:
+        getattr(form, field).data = getattr(settings, field)
 
 def generate_bed_file(bed_type: str, results: List[Dict[str, Any]], filename_prefix: str, settings: Dict[str, int], add_chr_prefix: bool) -> Tuple[str, str]:
     """
@@ -178,19 +167,19 @@ def generate_bed_file(bed_type: str, results: List[Dict[str, Any]], filename_pre
         ValueError: If an invalid BED type is specified.
     """
     if bed_type == 'raw':
-        bed_content = create_raw_bed(results, add_chr_prefix)
+        bed_content = BedGenerator.create_raw_bed(results, add_chr_prefix)
         filename = f'{filename_prefix}_raw.bed' if filename_prefix else 'raw.bed'
     elif bed_type == 'data':
-        bed_content = create_data_bed(results, settings['data_padding'], add_chr_prefix)
+        bed_content = BedGenerator.create_data_bed(results, settings['data_padding'], add_chr_prefix)
         filename = f'{filename_prefix}_data.bed' if filename_prefix else 'data.bed'
     elif bed_type == 'sambamba':
-        bed_content = create_sambamba_bed(results, settings['sambamba_padding'], add_chr_prefix)
+        bed_content = BedGenerator.create_sambamba_bed(results, settings['sambamba_padding'], add_chr_prefix)
         filename = f'{filename_prefix}_sambamba.bed' if filename_prefix else 'sambamba.bed'
     elif bed_type == 'exomeDepth':
-        bed_content = create_exome_depth_bed(results, settings['exomeDepth_padding'], add_chr_prefix)
+        bed_content = BedGenerator.create_exome_depth_bed(results, settings['exomeDepth_padding'], add_chr_prefix)
         filename = f'{filename_prefix}_exomeDepth.bed' if filename_prefix else 'exomeDepth.bed'
     elif bed_type == 'cnv':
-        bed_content = create_cnv_bed(results, settings['cnv_padding'], add_chr_prefix)
+        bed_content = BedGenerator.create_cnv_bed(results, settings['cnv_padding'], add_chr_prefix)
         filename = f'{filename_prefix}_CNV.bed' if filename_prefix else 'CNV.bed'
     else:
         raise ValueError('Invalid BED type')

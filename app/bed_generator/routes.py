@@ -23,10 +23,7 @@ from app.bed_generator.utils import (
 )
 from app.bed_generator.logic import process_form_data, store_results_in_session, process_bulk_data, get_mane_plus_clinical_identifiers, update_settings, populate_form_with_settings, generate_bed_file
 from app.bed_generator.database import store_bed_file
-from app.bed_generator.bed_generator import (
-    create_data_bed, create_sambamba_bed, create_exome_depth_bed,
-    create_cnv_bed, create_raw_bed
-)
+from app.bed_generator.bed_generator import BedGenerator
 from app.forms import SettingsForm, BedGeneratorForm
 from app.models import BedFile, BedEntry
 import os
@@ -175,28 +172,6 @@ def get_genes_by_panel(panel_id):
     else:
         return jsonify({'gene_list': [], 'error': 'Panel not found'})
 
-@bed_generator_bp.route('/download_bed_set', methods=['POST'])
-def download_bed_set():
-    """
-    Generates and returns a set of BED files based on processed results.
-    
-    Expects JSON data with results. Returns a JSON response with the generated BED files.
-    """
-    try:
-        results = request.json['results']
-        settings = load_settings()
-        
-        bed_files = {
-            'data.bed': create_data_bed(results, settings['padding']['data']),
-            'sambamba.bed': create_sambamba_bed(results, settings['padding']['sambamba']),
-            'exomeDepth.bed': create_exome_depth_bed(results, settings['padding']['exomeDepth']),
-            'CNV.bed': create_cnv_bed(results, settings['padding']['cnv'])
-        }
-        
-        return jsonify(bed_files)
-    except Exception as e:
-        print(f"Error in download_bed_set: {str(e)}")
-        return jsonify({'error': str(e)}), 500
 
 @bed_generator_bp.route('/settings', methods=['GET', 'POST'])
 @login_required
@@ -321,11 +296,11 @@ def submit_for_review():
 
             settings = load_settings()
             bed_types = {
-                'raw': create_raw_bed,
-                'data': create_data_bed,
-                'sambamba': create_sambamba_bed,
-                'exomeDepth': create_exome_depth_bed,
-                'CNV': create_cnv_bed
+                'raw': BedGenerator.create_raw_bed,
+                'data': BedGenerator.create_data_bed,
+                'sambamba': BedGenerator.create_sambamba_bed,
+                'exomeDepth': BedGenerator.create_exome_depth_bed,
+                'CNV': BedGenerator.create_cnv_bed
             }
 
             for bed_type, create_function in bed_types.items():
