@@ -1,3 +1,15 @@
+"""
+routes.py - Defines the authentication and user management routes for the application.
+
+Routes:
+- set_authorizer(user_id): Sets or removes authorizer status for a user.
+- user_management(): Displays the user management page for authorizers.
+- create_user(): Handles the creation of new users.
+- login(): Manages user login.
+- logout(): Handles user logout.
+- settings(): Displays and updates application settings.
+"""
+
 from flask import render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 from app.auth import auth_bp

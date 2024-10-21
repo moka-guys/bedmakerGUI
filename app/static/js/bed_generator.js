@@ -84,19 +84,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('panelDropdown').addEventListener('change', updateIdentifiers);
 });
 
-function createDNALoader() {
-    const dnaLoader = document.getElementById('dnaLoader');
-    for (let i = 0; i < 15; i++) {
-        let strand = document.createElement("div");
-        strand.classList.add("strand");
-        strand.innerHTML = `
-            <div class="top" style="animation-delay:${i * -0.2}s"></div>
-            <div class="bottom" style="animation-delay:${-1.5 - (i * 0.2)}s"></div>
-        `;
-        dnaLoader.appendChild(strand);
-    }
-}
-
 // Other functions
 function loadPanelsFromJSON() {
     return fetch('/bed_generator/panels')

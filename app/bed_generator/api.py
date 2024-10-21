@@ -15,6 +15,11 @@ import requests
 import re
 from typing import Dict, List, Optional, Union
 import time
+import logging
+from dataclasses import dataclass
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Constants
 ENSEMBL_GRCh38_URL = "https://rest.ensembl.org"
@@ -26,6 +31,9 @@ PANELAPP_API_URL = "https://panelapp.genomicsengland.co.uk/api/v1/"
 def get_ensembl_url(assembly: str) -> str:
     """Returns the appropriate Ensembl API URL based on the given assembly version."""
     return ENSEMBL_GRCh38_URL if assembly == 'GRCh38' else ENSEMBL_GRCh37_URL
+
+class ApiError(Exception):
+    pass
 
 class ApiClient:
     @staticmethod
@@ -53,15 +61,15 @@ class ApiClient:
                     # Handle rate limit error
                     attempt += 1
                     wait_time = 2 ** attempt  # Exponential backoff
-                    print(f"Rate limit exceeded. Retrying in {wait_time} seconds...")
+                    logger.info(f"Rate limit exceeded. Retrying in {wait_time} seconds...")
                     time.sleep(wait_time)
                 else:
-                    print(f"API request failed: {e}")
-                    return None
+                    logger.error(f"API request failed: {e}")
+                    raise ApiError(f"API request failed: {e}")
             except requests.RequestException as e:
-                print(f"API request failed: {e}")
-                return None
-        print("Max retries exceeded.")
+                logger.error(f"API request failed: {e}")
+                raise ApiError(f"API request failed: {e}")
+        logger.error("Max retries exceeded.")
         return None
 
     @classmethod
@@ -77,7 +85,20 @@ class ApiClient:
         return cls.make_api_request(url)
 
 # Main functions
-def fetch_variant_info(rsid: str, assembly: str) -> Optional[Dict]:
+@dataclass
+class VariantInfo:
+    rsid: str
+    accession: str
+    gene: str
+    entrez_id: str
+    loc_region: str
+    loc_start: int
+    loc_end: int
+    allele_string: str
+    most_severe_consequence: str
+    transcript_biotype: str
+
+def fetch_variant_info(rsid: str, assembly: str) -> Optional[VariantInfo]:
     """
     Fetches variant information from the Ensembl API using a given rsID and assembly.
 
@@ -86,9 +107,9 @@ def fetch_variant_info(rsid: str, assembly: str) -> Optional[Dict]:
         assembly (str): The genome assembly version ('GRCh38' or 'GRCh37').
 
     Returns:
-        Optional[Dict]: A dictionary containing variant information if successful, otherwise None.
+        Optional[VariantInfo]: A dataclass containing variant information if successful, otherwise None.
     """
-    print(f"Fetching variant info for {rsid} using assembly {assembly}")
+    logger.info(f"Fetching variant info for {rsid} using assembly {assembly}")
     ensembl_url = f"{get_ensembl_url(assembly)}/vep/human/id/{rsid}?merged=true&content-type=application/json"
     
     # Makes the API request and checks if data is returned.
@@ -101,19 +122,19 @@ def fetch_variant_info(rsid: str, assembly: str) -> Optional[Dict]:
     transcript_consequences = variant.get('transcript_consequences', [])
     refseq_consequence = next((c for c in transcript_consequences if c.get('source') == 'RefSeq'), None)
 
-    # Returns a dictionary with variant details, using 'unknown' as a default for missing data.
-    return {
-        'rsid': rsid,
-        'accession': refseq_consequence.get('transcript_id', 'unknown') if refseq_consequence else 'unknown',
-        'gene': refseq_consequence.get('gene_symbol', 'unknown') if refseq_consequence else 'unknown',
-        'entrez_id': refseq_consequence.get('hgnc_id', 'unknown') if refseq_consequence else 'unknown',
-        'loc_region': variant.get('seq_region_name', 'unknown'),
-        'loc_start': variant.get('start', 0),
-        'loc_end': variant.get('end', 0),
-        'allele_string': variant.get('allele_string', 'unknown'),
-        'most_severe_consequence': variant.get('most_severe_consequence', 'unknown'),
-        'transcript_biotype': refseq_consequence.get('consequence_terms', ['unknown'])[0] if refseq_consequence else 'unknown'
-    }
+    # Returns a dataclass with variant details, using 'unknown' as a default for missing data.
+    return VariantInfo(
+        rsid=rsid,
+        accession=refseq_consequence.get('transcript_id', 'unknown') if refseq_consequence else 'unknown',
+        gene=refseq_consequence.get('gene_symbol', 'unknown') if refseq_consequence else 'unknown',
+        entrez_id=refseq_consequence.get('hgnc_id', 'unknown') if refseq_consequence else 'unknown',
+        loc_region=variant.get('seq_region_name', 'unknown'),
+        loc_start=variant.get('start', 0),
+        loc_end=variant.get('end', 0),
+        allele_string=variant.get('allele_string', 'unknown'),
+        most_severe_consequence=variant.get('most_severe_consequence', 'unknown'),
+        transcript_biotype=refseq_consequence.get('consequence_terms', ['unknown'])[0] if refseq_consequence else 'unknown'
+    )
 
 def fetch_data_from_tark(identifier: str, assembly: str) -> Optional[List[Dict]]:
     """
@@ -279,8 +300,8 @@ def fetch_coordinate_info(coord: str, assembly: str) -> List[Dict]:
     chrom = chrom.lstrip('chr')
     start, end = map(int, pos.split('-'))
 
-    print(get_ensembl_url(assembly))
-    print(chrom, start, end)
+    logger.info(get_ensembl_url(assembly))
+    logger.info(f"{chrom} {start} {end}")
     
     # Constructs the URL for the Ensembl API request to get gene overlap information.
     ensembl_url = f"{get_ensembl_url(assembly)}/overlap/region/human/{chrom}:{start}-{end}?feature=gene;content-type=application/json"
@@ -370,16 +391,16 @@ def fetch_panels_from_panelapp() -> List[Dict]:
     """
     url = f"{PANELAPP_API_URL}panels/signedoff/"
     panels_list = []
-    print(f"Fetching panels from {url}")
+    logger.info(f"Fetching panels from {url}")
 
     while url:
-        print(f"Fetching from {url}")
+        logger.info(f"Fetching from {url}")
         data = ApiClient.get_panelapp_data(url)
         if not data:
-            print("No data received from API")
+            logger.info("No data received from API")
             break
 
-        print(f"Received {len(data['results'])} panels")
+        logger.info(f"Received {len(data['results'])} panels")
         for panel in data['results']:
             panel_data = {
                 'id': panel['id'],
@@ -395,7 +416,7 @@ def fetch_panels_from_panelapp() -> List[Dict]:
         
         url = data.get('next')
 
-    print(f"Total panels fetched: {len(panels_list)}")
+    logger.info(f"Total panels fetched: {len(panels_list)}")
     return panels_list
 
 def fetch_genes_for_panel(panel_id: int, include_amber: bool, include_red: bool) -> List[Dict]:
@@ -443,4 +464,3 @@ def validate_coordinates(coordinates: str) -> Optional[str]:
         return "Start position must be less than end position."
 
     return None
-

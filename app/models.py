@@ -1,9 +1,22 @@
+"""
+models.py - Defines the database models for the application.
+
+Models:
+- User: Represents user accounts with authentication and role information.
+- BedFile: Represents a BED file submission, including metadata and processing status.
+- BedEntry: Represents individual entries within a BED file, containing genomic information.
+- Settings: Stores application-wide settings, particularly padding values for various operations.
+
+Each model corresponds to a table in the database and includes relationships and methods
+as needed for the application's functionality.
+"""
+
 from .extensions import db
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 
 class User(UserMixin, db.Model):
-    __tablename__ = 'user'  # Make sure this matches your actual table name
+    __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), index=True, unique=True)
     email = db.Column(db.String(120), index=True, unique=True)
