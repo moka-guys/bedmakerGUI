@@ -1,0 +1,333 @@
+body {
+    background-color: #f1f0f0;
+    color: var(--text-color);
+}
+
+.container {
+    background-color: rgb(255, 255, 255);
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.navbar-custom {
+    background-color: #004a99;
+}
+
+.navbar-custom .navbar-brand,
+.navbar-custom .navbar-nav .nav-link {
+    color: #ffffff;
+}
+
+.logo-container {
+    background-color: #ffffff;
+    padding: 5px;
+    border-radius: 5px;
+    margin-left: auto;
+}
+
+[contenteditable=true]:empty:before {
+    content: attr(data-placeholder);
+    color: #999;
+    font-style: italic;
+}
+
+.dropdown-menu.show {
+    display: block;
+}
+
+.navbar-nav .btn-outline-light,
+.nav-item.dropdown {
+    margin-right: 1rem !important;
+}
+
+.navbar-nav .btn-outline-light:hover {
+    color: #004a99;
+    background-color: #ffffff;
+}
+
+.navbar-nav .dropdown-menu {
+    left: auto;
+    right: 0;
+}
+
+.me-3 {
+    margin-right: 1rem;
+}
+
+.navbar-custom .nav-item.active > .nav-link,
+.navbar-custom .nav-item .nav-link.active {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 0.25rem;
+}
+
+.navbar-custom .nav-link.btn-custom {
+    color: #004a99;
+    background-color: #ffffff;
+    border: 2px solid #004a99;
+    border-radius: 5px;
+    padding: 5px 10px;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.navbar-custom .nav-link.btn-custom:hover {
+    color: #ffffff;
+    background-color: #004a99;
+}
+
+.card {
+    background-color: #ededed;
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+    background-color: var(--card-background);
+}
+
+.card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.card-header {
+    background-color: #c7ddff;
+    border-bottom: 1px solid #cdcbcb;
+    font-weight: 600;
+    padding: 12px 20px;
+    outline: 1px solid #cdcbcb;
+}
+
+.card-body {
+    background-color: #fafafa;
+    padding: 10px;
+}
+
+:root {
+    --primary-color: #3498db;
+    --secondary-color: #2ecc71;
+    --accent-color: #e74c3c;
+    --text-color: #34495e;
+    --background-color: #ecf0f1;
+    --card-background: #ffffff;
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.btn-success {
+    background-color: var(--secondary-color);
+    border-color: var(--secondary-color);
+}
+
+.form-control {
+    border-radius: 4px;
+    border: 1px solid #ced4da;
+    padding: 10px 15px;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+}
+
+.form-check-input:checked {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+select.form-control {
+    background-size: 8px 10px;
+    padding-right: 2.25rem;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes slideDown {
+    from { transform: translateY(-10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.slide-down {
+    animation: slideDown 0.3s ease-out;
+}
+
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.content-wrapper {
+    flex: 1 0 auto;
+    padding-bottom: 60px; /* Adjust this value based on your footer's height */
+}
+
+.footer {
+    background-color: #f8f9fa; /* Or any color that matches your design */
+    padding: 10px 0;
+    width: 100%;
+}
+
+.dna-loader {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 30px;
+    width: 100%;
+}
+
+.strand {
+    position: relative;
+    width: 3px;
+    height: 22px;
+    margin: 0 2px;
+}
+
+.top, .bottom {
+    position: absolute;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    height: 6px;
+    width: 6px;
+    border-radius: 100%;
+    animation: 3s move infinite ease-in-out;
+}
+
+@keyframes move {
+    0% {
+        background-color: #0077be; /* Medium blue */
+        top: 100%;
+        z-index: -3;
+    }
+    25% { 
+        height: 4px;
+        width: 4px;
+        background-color: #4169e1; /* Royal blue */
+        z-index: -3;
+    }
+    50% {
+        background-color: #1e90ff; /* Dodger blue */
+        top: 0%;
+        z-index: -3;
+    }
+    75% {
+        height: 6px;
+        width: 6px;
+        background-color: #87cefa; /* Light sky blue */
+        z-index: 3;
+    }
+    100% {
+        top: 100%;
+        background-color: #0077be; /* Medium blue (same as start) */
+        z-index: 3;
+    }
+}
+
+#generateButton.loading {
+    background: none;
+    border: none;
+    padding: 0;
+    width: auto;
+    height: auto;
+}
+
+#generateButton.loading:hover {
+    background: none;
+}
+
+/* Add the following CSS at the end of the file */
+
+.spinner-square {
+    display: flex;
+    flex-direction: row;
+    width: 45px;
+    height: 22px;
+    margin-top: 10px;
+}
+
+.spinner-square > .square {
+    width: 9px;
+    height: 22px;
+    margin: auto auto;
+    border-radius: 2px;
+}
+
+.square-1 {
+    animation: square-anim 1200ms cubic-bezier(0.445, 0.05, 0.55, 0.95) 0s infinite;
+}
+
+.square-2 {
+    animation: square-anim 1200ms cubic-bezier(0.445, 0.05, 0.55, 0.95) 200ms infinite;
+}
+
+.square-3 {
+    animation: square-anim 1200ms cubic-bezier(0.445, 0.05, 0.55, 0.95) 400ms infinite;
+}
+
+@keyframes square-anim {
+    0% {
+        height: 22px;
+        background-color: rgb(111, 163, 240);
+    }
+    20% {
+        height: 22px;
+    }
+    40% {
+        height: 33px;
+        background-color: rgb(111, 200, 240);
+    }
+    80% {
+        height: 22px;
+    }
+    100% {
+        height: 22px;
+        background-color: rgb(111, 163, 240);
+    }
+}
+
+.table-responsive {
+    border: 1px solid #dee2e6;
+}
+.table {
+    margin-bottom: 0;
+}
+.table thead th {
+    position: sticky;
+    top: 0;
+    background-color: #f8f9fa;
+    z-index: 1;
+}
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(0,0,0,.05);
+}
+.table-bordered th,
+.table-bordered td {
+    border: 1px solid #dee2e6;
+}
+.table-responsive::-webkit-scrollbar {
+    width: 12px;
+}
+.table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+.table-responsive::-webkit-scrollbar-thumb {
+    background-color: #888;
+    border-radius: 6px;
+    border: 3px solid #f1f1f1;
+}
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background-color: #555;
+}
+.table tbody tr.active-row {
+    background-color: #e6f3ff !important;
+}

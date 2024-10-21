@@ -1,0 +1,253 @@
+{% extends 'base.html' %}
+
+{% block title %}Results{% endblock %}
+
+{% block content %}
+
+    <!-- Page Title Card -->
+    <div class="card shadow-sm mb-4" style="background-color: #f8f9fa;">
+        <div class="card-body text-center" style="background-color: #fafafa;">
+            <h3 class="my-1 page-title">Results</h3>
+        </div>
+    </div>
+
+    {% if results %}
+        <!-- Existing MANE Plus Clinical alert -->
+        {% if has_mane_plus_clinical %}
+        <div class="alert alert-info" role="alert">
+            <strong>Alert:</strong> 
+            {% if mane_plus_clinical_identifiers|length == 1 %}
+                {{ mane_plus_clinical_identifiers[0] }} contains
+            {% else %}
+                {{ mane_plus_clinical_identifiers|join(', ') }} contain
+            {% endif %}
+            a MANE Plus Clinical transcript. <b>The bed file will contain both sets of transcripts for these genes.</b>
+            <p><br>The MANE Plus Clinical set includes additional transcripts for genes where MANE Select alone is not sufficient to report all "Pathogenic (P)" or "Likely Pathogenic (LP)" clinical variants available in public resources.</p>
+            <a href="https://www.ncbi.nlm.nih.gov/refseq/MANE/" target="_blank" rel="noopener noreferrer">Learn more about MANE Plus Clinical</a>
+        </div>
+        {% endif %}
+
+        <!-- New Alert Section for Identifiers with No Data -->
+        {% if session['no_data_identifiers'] %}
+        <div class="alert alert-warning" role="alert">
+            <strong>Alert:</strong> No data found for the following identifiers: {{ session['no_data_identifiers']|join(', ') }}
+        </div>
+        {% endif %}
+
+        <!-- New Alert Section for Overlapping Genes -->
+        {% set overlapping_alerts = [] %}
+        {% for result in results %}
+            {% if result.alert and result.alert not in overlapping_alerts %}
+                {% do overlapping_alerts.append(result.alert) %}
+            {% endif %}
+        {% endfor %}
+        {% for alert in overlapping_alerts %}
+        <div class="alert alert-warning" role="alert">
+            <strong>Alert:</strong> {{ alert }}
+        </div>
+        {% endfor %}
+
+        <!-- Results Card -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>
+                    <i class="fa-solid fa-file-import" style="padding-right: 10px;"></i>BED File Contents
+                    <small style="font-size: 0.8em; color: #6c757d;"><i><br>IGV will automatically update when you click on a field.</i></small>
+                </span>
+            </div>
+            <div class="card-body p-0"> <!-- Remove padding from card-body -->
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-bordered table-striped mb-0"> <!-- Add table-striped and mb-0 classes -->
+                        <thead>
+                            <tr>
+                                <th>Chromosome</th>
+                                <th>Start</th>
+                                <th>End</th>
+                                <th>EntrezID</th>
+                                <th>Gene</th>
+                                <th>Accession</th>
+                                <th>Exon ID</th>
+                                <th>Exon Number</th>
+                                <th>Transcript Biotype</th>
+                                <th>Ensembl MANE Transcript</th>
+                                <th>MANE Transcript Type</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for result in results %}
+                                <tr onclick="setActiveRow(this, {{ loop.index0 }})">
+                                    <td>{{ result.loc_region }}</td>
+                                    <td>{{ result.loc_start }}</td>
+                                    <td>{{ result.loc_end }}</td>
+                                    <td>{{ result.entrez_id }}</td>
+                                    <td style="background-color: #d4edda;">{{ result.gene }}</td>
+                                    <td>{{ result.accession }}</td>
+                                    <td>{{ result.exon_id }}</td>
+                                    <td>{{ result.exon_number }}</td>
+                                    <td>{{ result.transcript_biotype }}</td>
+                                    <td>{{ result.mane_transcript }}</td>
+                                    <td>{{ result.mane_transcript_type }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="d-flex justify-content-end align-items-center p-3" style="border-top: 1px solid #dee2e6;">
+                    <div class="me-3" style="width: 300px;">
+                        <input type="text" class="form-control form-control-sm" id="bedFileNamePrefix" placeholder="Enter a filename for BED files">
+                    </div>
+                    <button class="btn btn-primary me-2" onclick="addNewLine()">Add New Line</button>
+                    <button class="btn btn-success" onclick="refreshIGV()">Refresh IGV</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- IGV Viewer Card -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                IGV Viewer
+            </div>
+            <div class="card-body">
+                <div id="igv-div" style="padding-top: 10px; padding-bottom: 10px; border:1px solid lightgray"></div>
+                <div class="mt-3 d-flex justify-content-between">
+                    <div>
+                        <input type="file" id="bedFileUpload" accept=".bed" style="display: none;">
+                        <label for="bedFileUpload" class="btn btn-primary mt-2">Upload existing BED File for comparison</label>
+                        <span id="comparisonResult" class="ms-3"></span> <!-- Placeholder for comparison results -->
+                    </div>
+                    <select id="genome-select" class="form-select d-inline-block w-auto ml-2" onchange="changeGenome()">
+                        <option value="hg38" {% if assembly == 'GRCh38' %}selected{% endif %}>hg38</option>
+                        <option value="hg19" {% if assembly == 'GRCh37' %}selected{% endif %}>hg19</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Download and Navigation Buttons -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-4">
+                        <a href="{{ url_for('bed_generator.index') }}" class="btn btn-secondary">
+                            <i class="bi bi-skip-backward"></i> Back
+                        </a>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-flex justify-content-center">
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-success" onclick="downloadBED('raw')"><i class="bi bi-download"></i> .bed</button>
+                                <button class="btn btn-primary" onclick="downloadBED('data')"><i class="bi bi-download"></i> .data</button>
+                                <button class="btn btn-primary" onclick="downloadBED('sambamba')"><i class="bi bi-download"></i> .sambamba</button>
+                                <button class="btn btn-primary" onclick="downloadBED('exomeDepth')"><i class="bi bi-download"></i> .exomeDepth</button>
+                                <button class="btn btn-primary" onclick="downloadBED('cnv')"><i class="bi bi-download"></i> .CNV</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button class="btn btn-danger" onclick="showSubmitModal()" data-index-url="{{ url_for('bed_generator.index') }}">
+                            <i class="bi bi-pen"></i> Submit for Review
+                        </button>
+                    </div>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-center align-items-center">
+                    <div class="form-check form-check-inline me-3">
+                        <input class="form-check-input" type="checkbox" id="addChrPrefix" onchange="toggleChrPrefix()">
+                        <label class="form-check-label ms-2" for="addChrPrefix">
+                            <small style="font-size: 0.8em; color: #6c757d;"><b>Add 'chr' prefix to chromosomes</b></small>
+                        </label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="checkbox" id="showPaddingAdjustment">
+                        <label class="form-check-label ms-2" for="showPaddingAdjustment">
+                            <small style="font-size: 0.8em; color: #6c757d;"><b>Adjust padding</b></small>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Padding Adjustment Section (initially hidden) -->
+                <div id="paddingAdjustmentSection" class="card shadow-sm mb-4" style="display: none;">
+                    <div class="card-header">
+                        Adjust Padding
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="paddingInput5" class="form-label">5' Padding (bp)</label>
+                            <input type="number" class="form-control" id="paddingInput5" value="0">
+                        </div>
+                        <div class="mb-3">
+                            <label for="paddingInput3" class="form-label">3' Padding (bp)</label>
+                            <input type="number" class="form-control" id="paddingInput3" value="0">
+                        </div>
+                        <button class="btn btn-primary" onclick="applyPadding()">Apply Padding</button>
+                    </div>
+                </div>
+
+                <!-- JavaScript to toggle visibility -->
+                <script>
+                    document.getElementById('showPaddingAdjustment').addEventListener('change', function() {
+                        var paddingSection = document.getElementById('paddingAdjustmentSection');
+                        paddingSection.style.display = this.checked ? 'block' : 'none';
+                    });
+                </script>
+
+                <textarea id="bedContent" style="display: none;">{{ results | tojson }}</textarea>
+
+                <!-- Simplify the modal for file name input -->
+                <div class="modal fade" id="submitModal" tabindex="-1" aria-labelledby="submitModalLabel" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="submitModalLabel">Submit BED File for Review</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label for="bedFileName" class="form-label">Enter a name for your new BED file:</label>
+                                    <input type="text" class="form-control" id="bedFileName" required>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-primary" onclick="submitForReview()">Submit</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Unique Regions Modal -->
+                <div class="modal fade" id="uniqueRegionsModal" tabindex="-1" aria-labelledby="uniqueRegionsModalLabel" aria-hidden="true">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="uniqueRegionsModalLabel">Unique Regions</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <ul id="uniqueRegionsList" class="list-group"></ul>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- EXTERNAL JS -->
+                <script src="https://cdn.jsdelivr.net/npm/igv@2.10.5/dist/igv.min.js"></script>
+                <script src="{{ url_for('static', filename='js/results.js') }}"></script>
+                <input type="hidden" id="initialQuery" value="{{ initial_query | tojson | safe }}">
+                <script>
+                    var initialQuery = {{ initial_query | safe }};
+                </script>
+
+    {% else %}
+        <p>No results found.</p>
+    {% endif %}
+
+{% endblock %}
+
+{% block head %}
+{{ super() }}
+{% endblock %}
+

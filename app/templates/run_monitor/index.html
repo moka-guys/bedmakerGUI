@@ -1,0 +1,298 @@
+{% extends 'base.html' %}
+
+{% block title %}Run Monitor{% endblock %}
+
+{% block content %}
+
+    <!-- Page Title Card -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body text-center" style="background-color: #fafafa;">
+            <h4 class="my-1 page-title">Run Monitor</h4>
+        </div>
+    </div>
+
+    <!-- Run Monitor Card -->
+    <div class="card shadow-sm mb-4" style="background-color: #f8f9fa;">
+        <div class="card-header">
+            Live Runs
+        </div>
+        <div class="card-body">
+            <div id="runList" class="mt-4">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Run Name</th>
+                                <th>Folder Name</th>
+                                <th>Demultiplex</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                                <th>Validated samplesheet?</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="runTableBody">
+                            <!-- Runs will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Samplesheet Validation Details -->
+    <div class="modal fade" id="samplesheetModal" tabindex="-1" aria-labelledby="samplesheetModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="samplesheetModalLabel">Samplesheet Validation Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="samplesheetModalBody">
+                    <!-- Content will be inserted here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-danger" id="resetErrorBtn">Reset Error</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for DNAnexus Project Information -->
+    <div class="modal fade" id="dnanexusModal" tabindex="-1" aria-labelledby="dnanexusModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="dnanexusModalLabel">DNAnexus Information</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="dnanexusModalBody">
+                    <!-- Content will be dynamically inserted here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" id="openDNAnexusBtn">Open in DNAnexus</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            fetchRuns();
+        });
+
+        function fetchRuns() {
+            fetch('/run_monitor/get_runs')
+                .then(response => response.json())
+                .then(data => {
+                    console.log("Received run data:", data);
+                    displayRuns(data);
+                })
+                .catch(error => console.error('Error fetching runs:', error));
+        }
+
+        function displayRuns(runs) {
+            const tableBody = document.getElementById('runTableBody');
+            tableBody.innerHTML = '';
+
+            runs.forEach(run => {
+                const row = document.createElement('tr');
+                
+                // Helper function to get cell color
+                const getCellColor = (value, type) => {
+                    if (type === 'status') {
+                        return value.toLowerCase() === 'complete' ? '#d4edda' : 
+                               value.toLowerCase() === 'sequencing' ? '#fff3cd' : 
+                               value.toLowerCase() === 'dnanexus upload' ? '#cce5ff' : '#f8d7da';
+                    } else if (type === 'samplesheet') {
+                        return value.toLowerCase() === 'yes' ? '#d4edda' : 
+                               value.toLowerCase() === 'pending' ? '#fff3cd' : '#f8d7da';
+                    } else if (type === 'demultiplex') {
+                        return value.toLowerCase() === 'complete' ? '#d4edda' : '';
+                    }
+                    return '';
+                };
+
+                const samplesheetCell = `
+                    <td style="background-color: ${getCellColor(run.samplesheet_validated, 'samplesheet')}; font-weight: bold;">
+                        ${run.samplesheet_validated === 'INVALID SAMPLESHEET' 
+                            ? `<a href="#" class="samplesheet-link" data-bs-toggle="modal" data-bs-target="#samplesheetModal" data-content="${encodeURIComponent(run.samplesheet_flagfile_content)}" data-run-name="${run.name}">${run.samplesheet_validated}</a>`
+                            : run.samplesheet_validated}
+                    </td>
+                `;
+
+                row.innerHTML = `
+                    <td>${run.name}</td>
+                    <td>${run.folder}</td>
+                    <td style="background-color: ${getCellColor(run.demultiplex, 'demultiplex')}; font-weight: bold;">${run.demultiplex}</td>
+                    <td style="background-color: ${getCellColor(run.status, 'status')}; font-weight: bold;">${run.status}</td>
+                    <td>${new Date(run.date * 1000).toLocaleString()}</td>
+                    ${samplesheetCell}
+                    <td>
+
+                        <button class="btn btn-sm btn-secondary" onclick="describeInDNAnexus('${run.folder}')">
+                            <img src="{{ url_for('static', filename='images/dnanexus.svg') }}" alt="DNAnexus" style="height: 20px; width: 20px;">
+                        </button>
+                        <button class="btn btn-sm btn-info" onclick="generateFastqLinks('${run.folder}')">Generate fastq links</button>
+                        <button class="btn btn-sm btn-success" onclick="viewMultiQCReport('${run.folder}')">View MultiQC</button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+
+            // Add event listener for samplesheet links
+            document.querySelectorAll('.samplesheet-link').forEach(link => {
+                link.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    const content = decodeURIComponent(this.getAttribute('data-content'));
+                    const runName = this.getAttribute('data-run-name');
+                    showSamplesheetDetails(content, runName);
+                });
+            });
+        }
+
+        // Remove the existing event listener for the samplesheet modal
+        // $('#samplesheetModal').on('show.bs.modal', function (event) { ... });
+
+        function showSamplesheetDetails(content, runName) {
+            const modalBody = document.getElementById('samplesheetModalBody');
+            modalBody.innerHTML = `<pre>${content}</pre>`;
+            const modal = new bootstrap.Modal(document.getElementById('samplesheetModal'));
+            modal.show();
+
+            // Add event listener for the Reset Error button
+            document.getElementById('resetErrorBtn').onclick = function() {
+                resetSamplesheetError(runName);
+            };
+
+            // Add event listener to remove modal when hidden
+            document.getElementById('samplesheetModal').addEventListener('hidden.bs.modal', function () {
+                modal.dispose();
+                document.body.classList.remove('modal-open');
+                document.querySelector('.modal-backdrop').remove();
+            });
+        }
+
+        function resetSamplesheetError(runName) {
+            fetch('/run_monitor/reset_samplesheet_error', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ run_name: runName })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('The samplesheet flag file has been deleted. Please use the samplesheet validator to submit a new corrected samplesheet.');
+                    bootstrap.Modal.getInstance(document.getElementById('samplesheetModal')).hide();
+                    fetchRuns(); // Refresh the run list
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while resetting the samplesheet error.');
+            });
+        }
+
+        function describeInDNAnexus(folder) {
+            fetch('/run_monitor/dx_find', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ folder: folder })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const modalBody = document.getElementById('dnanexusModalBody');
+                const openDNAnexusBtn = document.getElementById('openDNAnexusBtn');
+                if (data.error) {
+                    console.error('Error describing DNAnexus project:', data.error);
+                    modalBody.innerHTML = `<p class="text-danger">Error: ${data.error}</p>`;
+                    openDNAnexusBtn.style.display = 'none';
+                } else {
+                    console.log('DNAnexus project descriptions:', data.descriptions);
+                    if (data.descriptions && data.descriptions.length > 0) {
+                        let headerHtml = `<h6>Results for run: ${data.run_name}</h6>`;
+                        if (data.partial_match) {
+                            headerHtml += `<p class="text-warning">Note: These results are based on partial matches.</p>`;
+                        }
+                        const descriptionHtml = data.descriptions.map(desc => `<pre>${desc}</pre>`).join('<hr>');
+                        modalBody.innerHTML = headerHtml + descriptionHtml;
+                        
+                        // Extract project ID from the first description
+                        const projectIdMatch = data.descriptions[0].match(/ID: (project-\w+)/);
+                        if (projectIdMatch) {
+                            const projectId = projectIdMatch[1].replace('project-', '');
+                            openDNAnexusBtn.onclick = function() {
+                                window.open(`https://platform.dnanexus.com/panx/projects/${projectId}/data/`, '_blank');
+                            };
+                            openDNAnexusBtn.style.display = 'inline-block';
+                        } else {
+                            openDNAnexusBtn.style.display = 'none';
+                        }
+                    } else {
+                        modalBody.innerHTML = `<p>No matching DNAnexus projects found for run: ${data.run_name}</p>`;
+                        openDNAnexusBtn.style.display = 'none';
+                    }
+                }
+                const modal = new bootstrap.Modal(document.getElementById('dnanexusModal'));
+                modal.show();
+
+                // Add event listener to remove modal when hidden
+                document.getElementById('dnanexusModal').addEventListener('hidden.bs.modal', function () {
+                    modal.dispose();
+                    document.body.classList.remove('modal-open');
+                    document.querySelector('.modal-backdrop').remove();
+                });
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                const modalBody = document.getElementById('dnanexusModalBody');
+                modalBody.innerHTML = '<p class="text-danger">An error occurred while fetching DNAnexus project information.</p>';
+                document.getElementById('openDNAnexusBtn').style.display = 'none';
+                const modal = new bootstrap.Modal(document.getElementById('dnanexusModal'));
+                modal.show();
+
+                // Add event listener to remove modal when hidden
+                document.getElementById('dnanexusModal').addEventListener('hidden.bs.modal', function () {
+                    modal.dispose();
+                    document.body.classList.remove('modal-open');
+                    document.querySelector('.modal-backdrop').remove();
+                });
+            });
+        }
+
+        function generateFastqLinks(folder) {
+            fetch('/run_monitor/generate_fastq_links', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ folder: folder })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Fastq download links have been generated successfully.');
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while generating fastq download links.');
+            });
+        }
+
+        function viewMultiQCReport(folder) {
+            window.open(`/run_monitor/multiqc_report/${folder}`, '_blank');
+        }
+    </script>
+
+{% endblock %}

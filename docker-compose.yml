@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    command: /app/entrypoint.sh
+    volumes:
+      - .:/app
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_APP=run.py
+      - FLASK_ENV=development
+      - SECRET_KEY=${SECRET_KEY}  # Unified naming for the secret key
+      - DATABASE_URL=sqlite:////app/instance/transcript.db
+    env_file:
+      - .env
