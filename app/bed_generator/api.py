@@ -27,42 +27,54 @@ def get_ensembl_url(assembly: str) -> str:
     """Returns the appropriate Ensembl API URL based on the given assembly version."""
     return ENSEMBL_GRCh38_URL if assembly == 'GRCh38' else ENSEMBL_GRCh37_URL
 
+class ApiClient:
+    @staticmethod
+    def make_api_request(url: str, params: Optional[Dict] = None, retries: int = 3) -> Optional[Dict]:
+        """
+        Makes a GET request to the specified URL with optional parameters and returns the JSON response.
+        Implements a retry mechanism with exponential backoff for handling rate limits.
 
+        Args:
+            url (str): The URL to send the GET request to.
+            params (Optional[Dict]): A dictionary of query parameters to include in the request.
+            retries (int): The number of retry attempts for handling rate limits.
 
-def make_api_request(url: str, params: Optional[Dict] = None, retries: int = 3) -> Optional[Dict]:
-    """
-    Makes a GET request to the specified URL with optional parameters and returns the JSON response.
-    Implements a retry mechanism with exponential backoff for handling rate limits.
-
-    Args:
-        url (str): The URL to send the GET request to.
-        params (Optional[Dict]): A dictionary of query parameters to include in the request.
-        retries (int): The number of retry attempts for handling rate limits.
-
-    Returns:
-        Optional[Dict]: The JSON response from the API if the request is successful, otherwise None.
-    """
-    attempt = 0
-    while attempt <= retries:
-        try:
-            response = requests.get(url, params=params)
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.HTTPError as e:
-            if response.status_code == 429:
-                # Handle rate limit error
-                attempt += 1
-                wait_time = 2 ** attempt  # Exponential backoff
-                print(f"Rate limit exceeded. Retrying in {wait_time} seconds...")
-                time.sleep(wait_time)
-            else:
+        Returns:
+            Optional[Dict]: The JSON response from the API if the request is successful, otherwise None.
+        """
+        attempt = 0
+        while attempt <= retries:
+            try:
+                response = requests.get(url, params=params)
+                response.raise_for_status()
+                return response.json()
+            except requests.exceptions.HTTPError as e:
+                if response.status_code == 429:
+                    # Handle rate limit error
+                    attempt += 1
+                    wait_time = 2 ** attempt  # Exponential backoff
+                    print(f"Rate limit exceeded. Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                else:
+                    print(f"API request failed: {e}")
+                    return None
+            except requests.RequestException as e:
                 print(f"API request failed: {e}")
                 return None
-        except requests.RequestException as e:
-            print(f"API request failed: {e}")
-            return None
-    print("Max retries exceeded.")
-    return None
+        print("Max retries exceeded.")
+        return None
+
+    @classmethod
+    def get_ensembl_data(cls, url: str) -> Optional[Dict]:
+        return cls.make_api_request(url)
+
+    @classmethod
+    def get_tark_data(cls, url: str, params: Dict) -> Optional[Dict]:
+        return cls.make_api_request(url, params)
+
+    @classmethod
+    def get_panelapp_data(cls, url: str) -> Optional[Dict]:
+        return cls.make_api_request(url)
 
 # Main functions
 def fetch_variant_info(rsid: str, assembly: str) -> Optional[Dict]:
@@ -80,7 +92,7 @@ def fetch_variant_info(rsid: str, assembly: str) -> Optional[Dict]:
     ensembl_url = f"{get_ensembl_url(assembly)}/vep/human/id/{rsid}?merged=true&content-type=application/json"
     
     # Makes the API request and checks if data is returned.
-    data = make_api_request(ensembl_url)
+    data = ApiClient.get_ensembl_data(ensembl_url)
     if not data:
         return None
 
@@ -125,7 +137,7 @@ def fetch_data_from_tark(identifier: str, assembly: str) -> Optional[List[Dict]]
         'assembly_name': 'GRCh38' if assembly == 'GRCh38' else 'GRCh37'
     }
 
-    data = make_api_request(search_url, params)
+    data = ApiClient.get_tark_data(search_url, params)
     if not data:
         return None
 
@@ -237,7 +249,7 @@ def fetch_data_from_tark_with_hg38(hg38_identifier: str) -> Optional[List[Dict]]
         'expand': 'transcript_release_set,genes,exons'
     }
 
-    data = make_api_request(search_url, params)
+    data = ApiClient.get_tark_data(search_url, params)
     if not data:
         return None
 
@@ -274,7 +286,7 @@ def fetch_coordinate_info(coord: str, assembly: str) -> List[Dict]:
     ensembl_url = f"{get_ensembl_url(assembly)}/overlap/region/human/{chrom}:{start}-{end}?feature=gene;content-type=application/json"
     
     # Makes the API request and processes the response.
-    data = make_api_request(ensembl_url)
+    data = ApiClient.get_ensembl_data(ensembl_url)
     if not data:
         return [{
             'loc_region': chrom,
@@ -362,7 +374,7 @@ def fetch_panels_from_panelapp() -> List[Dict]:
 
     while url:
         print(f"Fetching from {url}")
-        data = make_api_request(url)
+        data = ApiClient.get_panelapp_data(url)
         if not data:
             print("No data received from API")
             break
@@ -399,7 +411,7 @@ def fetch_genes_for_panel(panel_id: int, include_amber: bool, include_red: bool)
         List[Dict]: A list of dictionaries containing gene information.
     """
     url = f"{PANELAPP_API_URL}panels/{panel_id}/"
-    data = make_api_request(url)
+    data = ApiClient.get_panelapp_data(url)
     if not data:
         return []
 
