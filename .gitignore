@@ -1,5 +1,5 @@
 .env
-/app/bed_generator/__pycache__/
+app/bed_generator/__pycache__/
 *.pyc
 *.db
 transcript.db
@@ -15,3 +15,4 @@ sort.py
 .coverage
 .coverage.*
 extract.py
+db_data/app.db

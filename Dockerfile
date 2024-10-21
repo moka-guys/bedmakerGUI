@@ -24,8 +24,9 @@ COPY . .
 # Make entrypoint.sh executable
 RUN chmod +x /app/entrypoint.sh
 
-# Create a non-root user
+# Create a non-root user and switch to it
 RUN useradd -m myuser
+RUN chown -R myuser:myuser /app
 USER myuser
 
 # Run entrypoint.sh
