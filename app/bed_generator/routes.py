@@ -162,16 +162,24 @@ def get_genes_by_panel(panel_id):
     
     Returns a JSON response with the list of genes or an error message if the panel is not found.
     """
-    panels = get_panels_from_json()
-    panel = next((p for p in panels if str(p['id']) == str(panel_id) or p['full_name'] == panel_id), None)
+    panels, last_updated = get_panels_from_json()
     
-    if panel:
-        if 'genes' in panel:
-            return jsonify({'gene_list': panel['genes']})
+    if not isinstance(panels, list):
+        return jsonify({'gene_list': [], 'error': 'Invalid panel data format'})
+    
+    try:
+        panel = next((p for p in panels if str(p.get('id')) == str(panel_id) or p.get('full_name') == panel_id), None)
+        
+        if panel:
+            if 'genes' in panel:
+                return jsonify({'gene_list': panel['genes']})
+            else:
+                return jsonify({'gene_list': [], 'error': 'Panel found but contains no genes'})
         else:
-            return jsonify({'gene_list': [], 'error': 'Panel found but contains no genes'})
-    else:
-        return jsonify({'gene_list': [], 'error': 'Panel not found'})
+            return jsonify({'gene_list': [], 'error': 'Panel not found'})
+    except Exception as e:
+        print(f"Error processing panel data: {str(e)}")
+        return jsonify({'gene_list': [], 'error': f'Error processing panel data: {str(e)}'})
 
 
 @bed_generator_bp.route('/settings', methods=['GET', 'POST'])
