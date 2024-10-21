@@ -1,16 +1,17 @@
 # BEDmaker GUI 🛏️🔬
 
-bedMAKER is a web-based tool developed by the Synnovis Bioinformatics teams at Guy's and St Thomas' NHS Foundation Trust. It allows users to generate BED (Browser Extensible Data) files using the [Ensembl Tark](https://tark.ensembl.org/) and [VEP](https://rest.ensembl.org/#VEP) RESTful APIs.
+BEDmaker GUI is a web-based tool developed by the Synnovis Bioinformatics teams at Guy's and St Thomas' NHS Foundation Trust. It allows users to generate BED (Browser Extensible Data) files using the [Ensembl Tark](https://tark.ensembl.org/) and [VEP](https://rest.ensembl.org/#VEP) RESTful APIs.
 
 - **Gene Symbols and Transcript IDs**: When users input gene symbols or transcript IDs, the BED File Generator queries the Tark API to retrieve the corresponding transcript data, including exon boundaries and other relevant information.
 - **rsIDs and Genomic Coordinates**: For rsIDs and specific genomic coordinates, the tools uses the VEP API to fetch detailed variant annotations and their genomic positions.
 
+
 ## Screenshots
 
 <div align="center" style="margin-top: 20px; padding-top: 20px;">
-    <img src="app/static/images/screenshot1.png" alt="Screenshot 1 of BED File Generator" width="40%">
-    <figcaption style="text-align: center; font-size: 0.9em; color: #6c757d;">Figure 1: User interface of the BED File Generator showing the input form.</figcaption><br>
-    <img src="app/static/images/screenshot2.png" alt="Screenshot 2 of BED File Generator" width="40%">
+    <img src="app/static/images/screenshot1.png" alt="Screenshot 1 of BED File Generator" width="80%"><br></br>
+    <figcaption style="text-align: center; font-size: 0.9em; color: #6c757d;">Figure 1: User interface of the BED File Generator showing the input form.</figcaption><br></br>
+    <img src="app/static/images/screenshot2.png" alt="Screenshot 2 of BED File Generator" width="80%"><br></br>
     <figcaption style="text-align: center; font-size: 0.9em; color: #6c757d;">Figure 2: Results viewer displaying generated BED file data with options for customisation and download.</figcaption>
 </div>
 
@@ -138,9 +139,6 @@ docker-compose up
 - `create_user.py`: Script to create admin users (can also be accessed via the web app)
 - `run.py`: Application entry point
 
-## Contributing
-
-Please read the CONTRIBUTING.md file for details on our code of conduct and the process for submitting pull requests.
 
 ## License
 
@@ -151,5 +149,6 @@ This project is licensed under the [MIT License](LICENSE).
 - Developed by the Synnovis Bioinformatics Team @ Guy's and St Thomas' NHS Foundation Trust (2024)
 - Uses the IGV.js library for genomic visualization
 - Integrates with PanelApp for gene panel data
+- Utilises Ensembl VEP and TARK RESTful APIs for metadata
 
 For more information, please contact the development team or refer to the internal documentation.
