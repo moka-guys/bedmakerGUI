@@ -5,13 +5,15 @@ Routes:
 - index(): Handles the main page for the bed generator, processing form submissions.
 - bulk_process(): Processes bulk genetic data submitted via a POST request.
 - results(): Displays the results of processed genetic data.
+- adjust_padding(): Adjusts padding for results based on user input.
 - panels(): Returns the list of panels as a JSON response.
 - refresh_panels(): Fetches and updates the panel data from an external source.
 - get_genes_by_panel(panel_id): Retrieves genes associated with a specific panel.
-- download_bed_set(): Generates and returns a set of BED files based on processed results.
 - settings(): Displays and updates application settings.
 - submit_for_review(): Submits a BED file for review.
 - download_bed(bed_type): Generates and returns a specific type of BED file.
+- get_published_bed_files(): Retrieves a list of published BED files.
+- get_bed_files(): Retrieves a list of all BED files with their details.
 """
 
 from flask import render_template, request, jsonify, session, current_app, redirect, url_for, flash
@@ -22,7 +24,6 @@ from app.bed_generator.utils import (
     store_panels_in_json, get_panels_from_json, load_settings
 )
 from app.bed_generator.logic import process_form_data, store_results_in_session, process_bulk_data, get_mane_plus_clinical_identifiers, update_settings, populate_form_with_settings, generate_bed_file
-from app.bed_generator.database import store_bed_file
 from app.bed_generator.bed_generator import BedGenerator
 from app.forms import SettingsForm, BedGeneratorForm
 from app.models import BedFile, BedEntry
@@ -378,6 +379,3 @@ def get_bed_files():
     except Exception as e:
         current_app.logger.error(f"Error in get_bed_files: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
-
-
-

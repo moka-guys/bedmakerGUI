@@ -16,10 +16,9 @@ from app.models import Settings
 from .utils import process_identifiers, process_coordinates
 from .bed_generator import BedGenerator
 import re
-import json
 from flask import session
 from .api import validate_coordinates
-from typing import List, Tuple, Dict, Set, Any
+from typing import List, Tuple, Dict, Any, Set
 from flask_wtf import FlaskForm
 
 def process_form_data(form: FlaskForm) -> Tuple[List[Dict[str, Any]], List[str], Dict[str, Any]]:

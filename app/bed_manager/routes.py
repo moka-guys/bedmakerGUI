@@ -1,3 +1,18 @@
+"""
+routes.py - Defines the routes for the bed manager app.
+
+Routes:
+- index(): Displays the main page of the bed manager with a list of all bed files.
+- submit_bed_file(): Handles the submission of a new BED file.
+- review_bed_file(file_id): Manages the review process for a specific BED file.
+- remove_bed_file(file_id): Removes a BED file if the user has permission.
+- bed_file_details(file_id): Displays details of a specific BED file, including its entries and version history.
+- authorise_bed_file(file_id): Authorizes a BED file, publishing it or creating a new version.
+- reload_bed_results(file_id): Reloads the results of a BED file into the session for the bed generator.
+- compare_bed_files(file_id): Compares a new BED file with its published version or another selected file.
+- file_details(file_id): Retrieves and returns detailed information about a specific BED file.
+"""
+
 from flask import render_template, request, redirect, url_for, flash, jsonify, session
 from flask_login import login_required, current_user
 from app.bed_manager import bed_manager_bp
