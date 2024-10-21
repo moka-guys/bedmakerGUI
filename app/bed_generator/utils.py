@@ -5,9 +5,7 @@ Functions:
 - load_settings: Loads settings from a JSON file.
 - process_identifiers: Processes a list of genetic identifiers, fetching data and applying UTR and padding adjustments.
 - process_single_identifier: Processes a single genetic identifier, fetching data based on its type.
-- process_data: Processes fetched data, applying UTR and padding adjustments.
 - process_tark_data: Processes a single TARK data entry, adjusting for UTRs and padding.
-- process_utr: Adjusts the start or end position of a UTR based on inclusion settings.
 - process_coordinates: Processes a list of genomic coordinates, fetching overlapping gene information.
 - store_panels_in_json: Stores panel data in a JSON file, formatting the panel names.
 - get_panels_from_json: Retrieves panel data from a JSON file.
@@ -26,7 +24,6 @@ from .api import fetch_variant_info, fetch_data_from_tark, fetch_coordinate_info
 import datetime
 
 # Constants
-SETTINGS_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'settings.json')
 PANELS_JSON_PATH = os.path.join(os.path.dirname(__file__), 'panels.json')
 GENES_JSON_PATH = os.path.join(os.path.dirname(__file__), 'genes.json')
 
@@ -84,48 +81,10 @@ def process_identifiers(identifiers: List[str], assembly: str, include_5utr: boo
     
     return results, no_data_identifiers
 
-def process_single_identifier(identifier: str, assembly: str) -> Any:
-    """
-    Processes a single genetic identifier, fetching data based on its type.
-
-    Args:
-        identifier: A genetic identifier (e.g., rsID or TARK ID).
-        assembly: The genome assembly version (e.g., 'GRCh38').
-
-    Returns:
-        The fetched data for the identifier.
-    """
-    if re.match(r'^RS\d+$', identifier, re.IGNORECASE):
-        print(f"Processing rsID: {identifier}")
-        return fetch_variant_info(identifier, assembly)
-    else:
-        return fetch_data_from_tark(identifier, assembly)
-
-def process_data(data: Any, include_5utr: bool, include_3utr: bool) -> List[Dict[str, Any]]:
-    """
-    Processes fetched data, applying UTR and padding adjustments.
-
-    Args:
-        data: The data to process, either a list of TARK data or a single variant.
-        include_5utr: Whether to include the 5' UTR in the results.
-        include_3utr: Whether to include the 3' UTR in the results.
-
-    Returns:
-        A list of processed data entries.
-    """
-    if isinstance(data, list):
-        processed = [process_tark_data(r, include_5utr, include_3utr) for r in data]
-        return [item for item in processed if item is not None]
-    else:
-        print(f"Variant data: {data}")
-        return [data] if data is not None else []
-
 def process_tark_data(r: Dict[str, Any], include_5utr: bool, include_3utr: bool) -> Dict[str, Any]:
     """
     Processes a single TARK data entry, adjusting for UTRs and padding.
     """
-    original_start = r['loc_start']
-    original_end = r['loc_end']
     strand = r.get('loc_strand')
     
     if strand == 1:  # Positive strand
@@ -140,25 +99,6 @@ def process_tark_data(r: Dict[str, Any], include_5utr: bool, include_3utr: bool)
             r['loc_start'] = max(r['loc_start'], r['three_prime_utr']['start'])
     
     return r if r['loc_start'] < r['loc_end'] else None
-
-def process_utr(r: Dict[str, Any], utr_key: str, utr_bound: str, utr_opposite: str, include_utr: bool) -> int:
-    """
-    Adjusts the start or end position of a UTR based on inclusion settings.
-
-    Args:
-        r: A dictionary representing a TARK data entry.
-        utr_key: The key for the UTR (e.g., 'five_prime_utr').
-        utr_bound: The boundary to adjust (e.g., 'start').
-        utr_opposite: The opposite boundary (e.g., 'end').
-        include_utr: Whether to include the UTR in the results.
-
-    Returns:
-        The adjusted position.
-    """
-    utr = r.get(utr_key, {})
-    if not include_utr and utr.get(utr_bound) and r[f'loc_{utr_bound}'] == utr[utr_bound]:
-        return utr[utr_opposite]
-    return r[f'loc_{utr_bound}']
 
 def process_coordinates(coordinates: List[str], assembly: str = 'GRCh38') -> List[Dict[str, Any]]:
     """
