@@ -49,8 +49,6 @@ def index():
         results, no_data_identifiers, initial_query = process_form_data(form)
         store_results_in_session(results, no_data_identifiers, form.assembly.data, initial_query)
         
-        print("Initial Query:", initial_query)  # Debug print
-        
         return redirect(url_for('bed_generator.results'))
 
     return render_template('bed_generator.html', form=form, panels=panels)
