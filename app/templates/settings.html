@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block title %}BED Generator Settings{% endblock %}
+
+{% block content %}
+    <!-- Page Title Card -->
+    <div class="card shadow-sm mb-4" style="background-color: #f8f9fa;">
+        <div class="card-body text-center" style="background-color: #fafafa;">
+            <h4 class="my-1 page-title">Settings</h4>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="card shadow-sm mb-4" style="background-color: #f8f9fa;">
+        <div class="card-header">
+            Global padding
+        </div>
+        <div class="card-body">
+            <form id="settingsForm" method="post" action="{{ url_for('auth.settings') }}">
+                {{ form.hidden_tag() }}
+                {% for field in form if field.widget.input_type != 'hidden' and field != form.submit %}
+                    <div class="mb-3">
+                        {{ field.label(class="form-label") }}
+                        {{ field(class="form-control") }}
+                        {% if field.errors %}
+                            {% for error in field.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ error }}
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                {% endfor %}
+                
+                {{ form.submit(class="btn btn-primary") }}
+            </form>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    <script>
+        // You can add any custom JavaScript here if needed
+    </script>
+{% endblock %}

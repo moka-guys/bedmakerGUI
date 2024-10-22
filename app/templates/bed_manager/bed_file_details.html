@@ -1,0 +1,62 @@
+<h5>{{ bed_file.filename }}</h5>
+<div class="table-responsive">
+    <table class="table table-bordered table-striped">
+        <thead>
+            <tr>
+                <th>Chromosome</th>
+                <th>Start</th>
+                <th>End</th>
+                <th>EntrezID</th>
+                <th>Gene</th>
+                <th>Accession</th>
+                <th>Exon ID</th>
+                <th>Exon Number</th>
+                <th>Transcript Biotype</th>
+                <th>MANE Transcript</th>
+                <th>MANE Transcript Type</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in bed_file.entries %}
+                <tr>
+                    <td>{{ entry.chromosome }}</td>
+                    <td>{{ entry.start }}</td>
+                    <td>{{ entry.end }}</td>
+                    <td>{{ entry.entrez_id }}</td>
+                    <td>{{ entry.gene }}</td>
+                    <td>{{ entry.accession }}</td>
+                    <td>{{ entry.exon_id }}</td>
+                    <td>{{ entry.exon_number }}</td>
+                    <td>{{ entry.transcript_biotype }}</td>
+                    <td>{{ entry.mane_transcript }}</td>
+                    <td>{{ entry.mane_transcript_type }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="mt-3">
+    <h5>File Action:</h5>
+    <select class="form-select" id="fileAction" name="fileAction" onchange="showComparison()">
+        <option value="new">Create new file</option>
+        {% for file in published_files %}
+            <option value="{{ file.id }}">Increment version: {{ file.filename }}</option>
+        {% endfor %}
+    </select>
+</div>
+
+<!-- Update this section for the comparison view -->
+<div id="comparisonView" class="mt-4" style="display: none;">
+    <h5>Comparison View</h5>
+    <div class="row">
+        <div class="col-md-6">
+            <h6 id="existingFileHeader"></h6>
+            <div id="existingFileContent" class="border p-2" style="max-height: 300px; overflow-y: auto;"></div>
+        </div>
+        <div class="col-md-6">
+            <h6 id="newFileHeader"></h6>
+            <div id="newFileContent" class="border p-2" style="max-height: 300px; overflow-y: auto;"></div>
+        </div>
+    </div>
+</div>

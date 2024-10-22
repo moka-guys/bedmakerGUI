@@ -1,0 +1,380 @@
+{% extends 'base.html' %}
+
+{% block title %}BED Manager{% endblock %}
+
+{% block content %}
+    <!-- Page Title Card -->
+    <div class="card shadow-sm mb-4" style="background-color: #f8f9fa;">
+        <div class="card-body text-center" style="background-color: #fafafa;">
+            <h4 class="my-1 page-title">Manage BED Files</h4>
+        </div>
+    </div>
+    
+    <!-- Draft BED files card -->
+    <div class="card shadow-sm mb-4" style="background-color: #f8f9fa;">
+        <div class="card-header">
+            Draft BED Files
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>File Name</th>
+                            <th>Submitter</th>
+                            <th>5' UTR</th>
+                            <th>3' UTR</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bed_file in bed_files if bed_file.status != 'published' %}
+                            <tr>
+                                <td>{{ bed_file.id }}</td>
+                                <td>{{ bed_file.filename }}</td>
+                                <td>{{ bed_file.submitter.username }}</td>
+                                <td>{{ bed_file.include_5utr }}</td>
+                                <td>{{ bed_file.include_3utr }}</td>
+                                <td>{{ bed_file.status }}</td>
+                                <td>
+                                    {% if current_user.is_authorizer %}
+                                        <button class="btn btn-primary btn-sm review-bed-file" data-file-id="{{ bed_file.id }}">Review</button>
+                                        <button class="btn btn-danger btn-sm remove-bed-file" data-file-id="{{ bed_file.id }}">Delete entry</button>
+                                    {% endif %}
+                                    <button class="btn btn-info btn-sm view-details" data-file-id="{{ bed_file.id }}">View original query</button>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Published BED files card -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header" style="background-color: #b9fbd8;">
+            Live BED Files
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>File Name</th>
+                            <th>Submitter</th>
+                            <th>Authoriser</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bed_file in bed_files if bed_file.status == 'published' %}
+                            <tr>
+                                <td>{{ bed_file.id }}</td>
+                                <td>{{ bed_file.filename }}</td>
+                                <td>{{ bed_file.submitter.username }}</td>
+                                <td>{{ bed_file.authorizer.username }}</td>
+                                <td>
+                                    <button class="btn btn-success btn-sm open-in-results" data-file-id="{{ bed_file.id }}">Open in Results editor</button>
+                                    {% if current_user.is_authorizer %}                                        
+                                        <button class="btn btn-danger btn-sm remove-bed-file" data-file-id="{{ bed_file.id }}">Delete entry</button>
+                                    {% endif %}
+                                    <button class="btn btn-info btn-sm view-details" data-file-id="{{ bed_file.id }}">View original query</button>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for BED file details -->
+    <div class="modal fade" id="bedFileModal" tabindex="-1" aria-labelledby="bedFileModalLabel" aria-hidden="true">
+        <div class="modal-dialog" style="max-width: 70vw;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="bedFileModalLabel">Original Query Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="bedFileModalBody" style="max-height: 70vh; overflow-y: auto;">
+                    <!-- Content will be loaded here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal" data-file-id="">Authorise and publish BED</button>
+                    <button type="button" class="btn btn-success" onclick="reloadBedResults(this.getAttribute('data-file-id'))">Open in Results editor</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add this modal at the end of the file, before the closing body tag -->
+    <div class="modal fade" id="detailsModal" tabindex="-1" aria-labelledby="detailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="detailsModalLabel">BED File Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Created:</strong> <span id="createdDate"></span></p>
+                    <p><strong>Last Updated:</strong> <span id="updatedDate"></span></p>
+                    <p><strong>Initial Query:</strong></p>
+                    <pre id="initialQuery" style="white-space: pre-wrap; word-wrap: break-word;"></pre>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var bedFileModal = new bootstrap.Modal(document.getElementById('bedFileModal'));
+            
+            document.querySelectorAll('.review-bed-file').forEach(function(button) {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    var fileId = this.getAttribute('data-file-id');
+                    fetch('/bed_manager/bed_file_details/' + fileId)
+                    .then(response => response.text())
+                    .then(html => {
+                        document.getElementById('bedFileModalBody').innerHTML = html;
+                        document.querySelector('#bedFileModal .btn-primary').setAttribute('data-file-id', fileId);
+                        document.querySelector('#bedFileModal .btn-success').setAttribute('data-file-id', fileId);
+                        bedFileModal.show();
+                    });
+                });
+            });
+
+            document.querySelectorAll('.remove-bed-file').forEach(function(button) {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    if (confirm('Are you sure you want to remove this BED file?')) {
+                        var fileId = this.getAttribute('data-file-id');
+                        fetch('/bed_manager/remove/' + fileId, { method: 'POST' })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    this.closest('tr').remove();
+                                } else {
+                                    alert('Failed to remove BED file: ' + data.error);
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                alert('An error occurred while removing the BED file.');
+                            });
+                    }
+                });
+            });
+
+            // Add event listener for "Open in Results editor" buttons in the Live BED table
+            document.querySelectorAll('.open-in-results').forEach(function(button) {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    var fileId = this.getAttribute('data-file-id');
+                    reloadBedResults(fileId);
+                });
+            });
+
+            // Update the "Authorise and publish BED" button click handler
+            document.querySelector('#bedFileModal .btn-primary').addEventListener('click', function() {
+                var fileId = this.getAttribute('data-file-id');
+                var fileAction = document.getElementById('fileAction').value;
+                
+                fetch(`/bed_manager/authorise/${fileId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ fileAction: fileAction }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Create and show the alert
+                        var alert = document.createElement('div');
+                        alert.className = 'alert alert-success alert-dismissible fade show';
+                        alert.role = 'alert';
+                        alert.innerHTML = `
+                            <strong>Success!</strong> ${data.message}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        `;
+                        document.querySelector('.container').insertBefore(alert, document.querySelector('.container').firstChild);
+
+                        // Reload the page after a short delay
+                        setTimeout(() => {
+                            location.reload();
+                        }, 3000);
+                    } else {
+                        alert('Failed to authorise and publish BED file: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while authorising the BED file.');
+                });
+            });
+
+            // Add event listener for fileAction change
+            document.getElementById('fileAction').addEventListener('change', showComparison);
+
+            function reloadBedResults(fileId) {
+                fetch(`/bed_manager/reload_bed_results/${fileId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            window.location.href = data.redirect_url;
+                        } else {
+                            alert('Failed to reload BED results: ' + data.error);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred while reloading the BED results.');
+                    });
+            }
+
+            function showComparison() {
+                var fileAction = document.getElementById('fileAction');
+                var comparisonView = document.getElementById('comparisonView');
+                var publishedFileContent = document.getElementById('existingFileContent');
+                var newFileContent = document.getElementById('newFileContent');
+                var existingFileHeader = document.getElementById('existingFileHeader');
+                var newFileHeader = document.getElementById('newFileHeader');
+
+                var fileId = document.querySelector('#bedFileModal .btn-primary').getAttribute('data-file-id');
+                var selectedFileId = fileAction.value;
+                
+                fetch(`/bed_manager/compare_bed_files/${fileId}?selected_file_id=${selectedFileId}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        newFileContent.innerHTML = formatBedContent(data.new_file);
+                        publishedFileContent.innerHTML = data.message ? 
+                            `<p>${data.message}</p>` : 
+                            formatBedContent(data.published_file);
+                        comparisonView.style.display = 'block';
+                        
+                        // Update headers with file names
+                        newFileHeader.textContent = data.new_file_name || 'New Version';
+                        existingFileHeader.textContent = data.published_file_name || 'Published Version';
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred while comparing BED files: ' + error.message);
+                        comparisonView.style.display = 'none';
+                    });
+            }
+
+            function formatBedContent(content) {
+                if (!Array.isArray(content)) {
+                    console.error('Expected an array, but got:', content);
+                    return 'Error: Invalid data format';
+                }
+                return content.map(entry => 
+                    `${entry.chromosome}\t${entry.start}\t${entry.end}\t${entry.gene}`
+                ).join('<br>');
+            }
+        });
+
+            // Use event delegation for "View Details" buttons
+            document.body.addEventListener('click', function(e) {
+                if (e.target && e.target.classList.contains('view-details')) {
+                    e.preventDefault();
+                    var fileId = e.target.getAttribute('data-file-id');
+
+                    fetch('/bed_manager/file_details/' + fileId)
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Data received:', data); // Debugging log
+                        document.getElementById('createdDate').textContent = new Date(data.created_at).toLocaleString();
+                        document.getElementById('updatedDate').textContent = new Date(data.updated_at).toLocaleString();
+                        document.getElementById('initialQuery').textContent = JSON.stringify(data.initial_query, null, 2);
+                        var detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'));
+                        detailsModal.show();
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred while fetching file details.');
+                    });
+                }
+            });
+
+        function reloadBedResults(fileId) {
+            fetch(`/bed_manager/reload_bed_results/${fileId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = data.redirect_url;
+                    } else {
+                        alert('Failed to reload BED results: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while reloading the BED results.');
+                });
+        }
+
+        function showComparison() {
+            var fileAction = document.getElementById('fileAction');
+            var comparisonView = document.getElementById('comparisonView');
+            var publishedFileContent = document.getElementById('existingFileContent');
+            var newFileContent = document.getElementById('newFileContent');
+            var existingFileHeader = document.getElementById('existingFileHeader');
+            var newFileHeader = document.getElementById('newFileHeader');
+
+            var fileId = document.querySelector('#bedFileModal .btn-primary').getAttribute('data-file-id');
+            var selectedFileId = fileAction.value;
+            
+            fetch(`/bed_manager/compare_bed_files/${fileId}?selected_file_id=${selectedFileId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    newFileContent.innerHTML = formatBedContent(data.new_file);
+                    publishedFileContent.innerHTML = data.message ? 
+                        `<p>${data.message}</p>` : 
+                        formatBedContent(data.published_file);
+                    comparisonView.style.display = 'block';
+                    
+                    // Update headers with file names
+                    newFileHeader.textContent = data.new_file_name || 'New Version';
+                    existingFileHeader.textContent = data.published_file_name || 'Published Version';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while comparing BED files: ' + error.message);
+                    comparisonView.style.display = 'none';
+                });
+        }
+
+        function formatBedContent(content) {
+            if (!Array.isArray(content)) {
+                console.error('Expected an array, but got:', content);
+                return 'Error: Invalid data format';
+            }
+            return content.map(entry => 
+                `${entry.chromosome}\t${entry.start}\t${entry.end}\t${entry.gene}`
+            ).join('<br>');
+        }
+    </script>
+{% endblock %}
+
