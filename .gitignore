@@ -5,9 +5,7 @@ app/bed_generator/__pycache__/
 transcript.db
 flask_session/
 env/
-.repopackignore
 beds/
-repopack-output.txt
 sort.py
 logs/
 check.py
