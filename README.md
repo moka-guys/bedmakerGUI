@@ -25,12 +25,10 @@ BEDmaker GUI is a web-based tool developed by the Synnovis Bioinformatics teams 
 - Support for both GRCh37 (hg19) and GRCh38 (hg38) genome assemblies
 - Integration with PanelApp for importing gene lists from predefined panels
 - Custom padding to gene regions
-- Live edit regions of interest in results viewer
 - UTRs inclusion/exclusion
 - Interactive results view with IGV (Integrative Genomics Viewer) integration
 - User customisable BED file output in various formats (.bed, .data, .sambamba, .exomeDepth, .CNV)
 - User authentication and authorisation system
-- BED file management system with draft and published states
 
 ## Functionality schema
 
@@ -105,12 +103,12 @@ gunicorn -b 0.0.0.0:5000 run:app
 
 1. Build the Docker image:
    ```
-   docker build -t bed-file-generator .
+   docker build -t bed-file-generator:1.0.0 .
    ```
 
 2. Run the container:
    ```
-   docker run -p 5000:5000 -e BED_GENERATOR_FLASK_KEY=<your_secret_key> bed-file-generator
+   docker run -p 5000:5000 -e BED_GENERATOR_FLASK_KEY=<your_secret_key> bed-file-generator:1.0.0
    ```
 
 Alternatively, use Docker Compose:
@@ -140,15 +138,9 @@ docker-compose up
 - `run.py`: Application entry point
 
 
-## License
-
-This project is licensed under the [MIT License](LICENSE).
-
 ## Acknowledgments
 
 - Developed by the Synnovis Bioinformatics Team @ Guy's and St Thomas' NHS Foundation Trust (2024)
-- Uses the IGV.js library for genomic visualization
-- Integrates with PanelApp for gene panel data
-- Utilises Ensembl VEP and TARK RESTful APIs for metadata
-
-For more information, please contact the development team or refer to the internal documentation.
+- Uses IGV.js v3.0.8 for genomic visualization
+- Integrates with PanelApp v2 API
+- Utilises Ensembl VEP (v113) and TARK (v1.0.1) RESTful APIs for metadata
