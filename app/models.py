@@ -89,3 +89,14 @@ class Settings(db.Model):
             'exomeDepth_padding': self.exomeDepth_padding,
             'cnv_padding': self.cnv_padding
         }
+
+    def update_from_form(self, form):
+        """Updates settings from form data."""
+        for field in ['data_padding', 'sambamba_padding', 'exomeDepth_padding', 'cnv_padding']:
+            setattr(self, field, getattr(form, field).data)
+        db.session.commit()
+
+    def populate_form(self, form):
+        """Populates a form with current settings values."""
+        for field in ['data_padding', 'sambamba_padding', 'exomeDepth_padding', 'cnv_padding']:
+            getattr(form, field).data = getattr(self, field)

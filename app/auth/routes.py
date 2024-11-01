@@ -106,40 +106,17 @@ def logout():
 def settings():
     form = SettingsForm()
     if form.validate_on_submit():
-        # Update or create settings in the database
-        settings = Settings.query.first()
-        if not settings:
-            settings = Settings()
-            db.session.add(settings)
+        # Get or create settings using the helper method from the Settings model
+        settings = Settings.get_settings()
         
-        settings.data_padding = 0 if form.data_padding.data is None else form.data_padding.data
-        settings.sambamba_padding = 0 if form.sambamba_padding.data is None else form.sambamba_padding.data
-        settings.exomeDepth_padding = 0 if form.exomeDepth_padding.data is None else form.exomeDepth_padding.data
-        settings.cnv_padding = 0 if form.cnv_padding.data is None else form.cnv_padding.data
+        # Update settings using the model's helper method
+        settings.update_from_form(form)
         
-        db.session.commit()
-
-        # Update the JSON file
-        json_file_path = os.path.join(current_app.root_path, '..', 'settings.json')
-        with open(json_file_path, 'r+') as json_file:
-            json_data = json.load(json_file)
-            json_data['data_padding'] = settings.data_padding
-            json_data['sambamba_padding'] = settings.sambamba_padding
-            json_data['exomeDepth_padding'] = settings.exomeDepth_padding
-            json_data['cnv_padding'] = settings.cnv_padding
-            json_file.seek(0)
-            json.dump(json_data, json_file, indent=4)
-            json_file.truncate()
-
         flash('Settings updated successfully', 'success')
         return redirect(url_for('auth.settings'))
     
-    # Pre-populate form with existing settings
-    settings = Settings.query.first()
-    if settings:
-        form.data_padding.data = settings.data_padding
-        form.sambamba_padding.data = settings.sambamba_padding
-        form.exomeDepth_padding.data = settings.exomeDepth_padding
-        form.cnv_padding.data = settings.cnv_padding
+    # Pre-populate form with existing settings using the model's helper method
+    settings = Settings.get_settings()
+    settings.populate_form(form)
     
     return render_template('settings.html', form=form)
