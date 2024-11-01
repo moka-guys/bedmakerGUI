@@ -6,8 +6,6 @@ Functions:
 - store_results_in_session(results, no_data_identifiers, assembly, initial_query): Stores processed results in the session.
 - process_bulk_data(data): Processes bulk genetic data from a dictionary input.
 - get_mane_plus_clinical_identifiers(results): Retrieves identifiers marked as 'MANE PLUS CLINICAL' from results.
-- update_settings(form, json_file_path): Updates application settings based on form input and saves to a JSON file.
-- populate_form_with_settings(form, json_file_path): Populates a form with settings loaded from a JSON file.
 - generate_bed_file(bed_type, results, filename_prefix, settings, add_chr_prefix=False): Generates a BED file of a specified type using processed results and settings.
 """
 
@@ -134,17 +132,6 @@ def get_mane_plus_clinical_identifiers(results: List[Dict[str, Any]]) -> Set[str
         for result in results
         if result is not None and result.get('mane_transcript_type') == 'MANE PLUS CLINICAL'
     )
-
-def update_settings(form):
-    settings = Settings.get_settings()
-    for field in ['data_padding', 'sambamba_padding', 'exomeDepth_padding', 'cnv_padding']:
-        setattr(settings, field, getattr(form, field).data)
-    db.session.commit()
-
-def populate_form_with_settings(form):
-    settings = Settings.get_settings()
-    for field in ['data_padding', 'sambamba_padding', 'exomeDepth_padding', 'cnv_padding']:
-        getattr(form, field).data = getattr(settings, field)
 
 def generate_bed_file(bed_type: str, results: List[Dict[str, Any]], filename_prefix: str, settings: Dict[str, int], add_chr_prefix: bool) -> Tuple[str, str]:
     """

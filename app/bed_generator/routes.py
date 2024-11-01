@@ -22,10 +22,10 @@ from app.bed_generator import bed_generator_bp
 from app.bed_generator.utils import (
     store_panels_in_json, get_panels_from_json, load_settings, collect_warnings, increment_version_number
 )
-from app.bed_generator.logic import process_form_data, store_results_in_session, process_bulk_data, get_mane_plus_clinical_identifiers, update_settings, populate_form_with_settings, generate_bed_file
+from app.bed_generator.logic import process_form_data, store_results_in_session, process_bulk_data, get_mane_plus_clinical_identifiers, generate_bed_file
 from app.forms import SettingsForm, BedGeneratorForm
 from app.bed_generator.bed_generator import generate_bed_files
-from app.models import BedFile
+from app.models import BedFile, Settings
 from app.bed_generator.database import create_bed_entries
 import traceback
 import json
@@ -202,11 +202,11 @@ def settings():
     """
     form = SettingsForm()
     if form.validate_on_submit():
-        update_settings(form)
+        Settings.get_settings().update_from_form(form)
         flash('Settings updated successfully', 'success')
         return redirect(url_for('bed_generator.settings'))
     
-    populate_form_with_settings(form)
+    Settings.get_settings().populate_form(form)
     return render_template('settings.html', form=form)
 
 @bed_generator_bp.route('/submit_for_review', methods=['POST'])

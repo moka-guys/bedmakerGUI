@@ -66,7 +66,7 @@ class BedGenerator:
     def create_bed(cls, results: List[Dict], padding: int, format_type: str, add_chr_prefix: bool = False) -> str:
         return '\n'.join([cls.format_bed_line(r, padding, format_type, add_chr_prefix) for r in results])
 
-    # Remove individual create_*_bed methods and replace with a single factory method
+    # Single factory method for generating BED content in any supported format
     @classmethod
     def create_formatted_bed(cls, results: List[Dict], format_type: str, padding: int = 0, add_chr_prefix: bool = False) -> str:
         """Factory method to create BED content in any supported format."""
