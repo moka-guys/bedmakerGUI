@@ -202,10 +202,27 @@ def select_transcripts(data: List[Dict], assembly: str, version: Optional[str] =
         if grch38_mane:
             matching_grch37 = [t for t in assembly_transcripts if t['stable_id'] == grch38_mane['stable_id']]
             if matching_grch37:
-                return [max(matching_grch37, key=lambda x: int(x['stable_id_version']))]
+                selected = max(matching_grch37, key=lambda x: int(x['stable_id_version']))
+                identifier = f"{selected['stable_id']}.{selected['stable_id_version']}"
+                selected['warning'] = {
+                    'message': "Transcript selected based on best available GRCh38 MANE transcript match",
+                    'identifier': identifier,
+                    'type': 'transcript_selection'
+                }
+                return [selected]
 
-    # If no MANE transcripts or matching GRCh37 transcript, selects the transcript with the highest version number.
-    return [max(assembly_transcripts, key=lambda x: int(x['stable_id_version']), default=None)] if assembly_transcripts else []
+    # If no MANE transcripts or matching GRCh37 transcript
+    if assembly_transcripts:
+        selected = max(assembly_transcripts, key=lambda x: int(x['stable_id_version']))
+        identifier = f"{selected['stable_id']}.{selected['stable_id_version']}"
+        selected['warning'] = {
+            'message': "No MANE transcript available. Selected highest version number - clinical review recommended",
+            'identifier': identifier,
+            'type': 'transcript_selection'
+        }
+        return [selected]
+    
+    return []
 
 def process_transcripts(transcripts: List[Dict], identifier: str) -> List[Dict]:
     """
@@ -227,6 +244,7 @@ def process_transcripts(transcripts: List[Dict], identifier: str) -> List[Dict]:
         accession = f"{transcript['stable_id']}.{transcript['stable_id_version']}"
         entrez_id = transcript['genes'][0]['stable_id'] if 'genes' in transcript and transcript['genes'] else None
         gene_name = next((gene['name'] for gene in transcript.get('genes', []) if gene['name']), identifier)
+        warning = transcript.get('warning', '')  # Get the warning if present
         
         # Iterates over exons to build a detailed list of transcript information.
         for index, exon in enumerate(transcript.get('exons', []), start=1):
@@ -243,6 +261,8 @@ def process_transcripts(transcripts: List[Dict], identifier: str) -> List[Dict]:
                 'transcript_biotype': transcript.get('biotype', ''),
                 'mane_transcript': transcript.get('mane_transcript', ''),
                 'mane_transcript_type': transcript.get('mane_transcript_type', ''),
+                'warning': warning,
+                'identifier': identifier,
                 'five_prime_utr': {
                     'start': transcript.get('five_prime_utr_start'),
                     'end': transcript.get('five_prime_utr_end')

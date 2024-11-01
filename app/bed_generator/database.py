@@ -34,24 +34,34 @@ def store_bed_file(file_name: str, results: List[Dict], user_id: int, initial_qu
     return new_bed_file.id
 
 def create_bed_file(file_name: str, user_id: int, initial_query: str, assembly: str) -> BedFile:
-    """
-    Creates a new BED file record in the database.
+    # Collect warnings from results
+    warnings = []
+    initial_query_data = json.loads(initial_query)
+    results = initial_query_data.get('results', [])
+    
+    for result in results:
+        if warning := result.get('warning'):
+            warnings.append({
+                'identifier': result.get('identifier'),
+                'message': warning.get('message'),
+                'type': warning.get('type')
+            })
+    
+    # Create a summary warning
+    file_warning = None
+    if warnings:
+        file_warning = json.dumps({
+            'summary': "Some transcripts require clinical review",
+            'details': warnings
+        })
 
-    Args:
-        file_name (str): The name of the BED file.
-        user_id (int): The ID of the user submitting the BED file.
-        initial_query (str): The initial query made from the frontend.
-        assembly (str): The assembly used for the BED file.
-
-    Returns:
-        BedFile: The newly created BED file object.
-    """
     new_bed_file = BedFile(
         filename=file_name,
         status='draft',
         submitter_id=user_id,
         initial_query=initial_query,
-        assembly=assembly
+        assembly=assembly,
+        warning=file_warning
     )
     db.session.add(new_bed_file)
     db.session.flush()
@@ -78,6 +88,7 @@ def create_bed_entries(bed_file_id: int, results: List[Dict]) -> None:
             exon_number=result.get('exon_number'),
             transcript_biotype=result.get('transcript_biotype'),
             mane_transcript=result.get('mane_transcript'),
-            mane_transcript_type=result.get('mane_transcript_type')
+            mane_transcript_type=result.get('mane_transcript_type'),
+            warning=result.get('warning', '')
         )
         db.session.add(new_entry)

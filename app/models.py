@@ -42,6 +42,7 @@ class BedFile(db.Model):
     initial_query = db.Column(db.Text)
     include_3utr = db.Column(db.Boolean, default=False)
     include_5utr = db.Column(db.Boolean, default=False)
+    warning = db.Column(db.Text)
 
     submitter = db.relationship('User', foreign_keys=[submitter_id], backref='submitted_bed_files')
     authorizer = db.relationship('User', foreign_keys=[authorizer_id], backref='authorized_bed_files')
@@ -61,6 +62,7 @@ class BedEntry(db.Model):
     transcript_biotype = db.Column(db.String(50))
     mane_transcript = db.Column(db.String(50))
     mane_transcript_type = db.Column(db.String(50))
+    warning = db.Column(db.String(255))
 
     bed_file = db.relationship('BedFile', back_populates='entries')
 
