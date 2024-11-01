@@ -262,7 +262,8 @@ def submit_for_review():
                         exon_number=result['exon_number'],
                         transcript_biotype=result['transcript_biotype'],
                         mane_transcript=result['mane_transcript'],
-                        mane_transcript_type=result['mane_transcript_type']
+                        mane_transcript_type=result['mane_transcript_type'],
+                        warning=json.dumps(result.get('warning')) if result.get('warning') else None
                     )
                     db.session.add(entry)
                 
@@ -272,9 +273,32 @@ def submit_for_review():
                 return jsonify({'success': False, 'error': 'Existing file not found'}), 404
         
         elif fileName:
-            new_file = BedFile(filename=fileName, status='pending', submitter_id=current_user.id, 
-                               initial_query=initial_query_json, assembly=assembly,
-                               include_3utr=include_3utr, include_5utr=include_5utr)
+            # Create new version with warnings from results
+            warnings = []
+            for result in results:
+                if warning := result.get('warning'):
+                    warnings.append({
+                        'identifier': result.get('identifier'),
+                        'message': warning.get('message'),
+                        'type': warning.get('type')
+                    })
+            
+            # Create a summary warning if needed
+            file_warning = None
+            if warnings:
+                file_warning = json.dumps({
+                    'summary': "Some transcripts require clinical review",
+                    'details': warnings
+                })
+
+            new_file = BedFile(filename=fileName, 
+                               status='pending', 
+                               submitter_id=current_user.id, 
+                               initial_query=initial_query_json, 
+                               assembly=assembly,
+                               include_3utr=include_3utr, 
+                               include_5utr=include_5utr,
+                               warning=file_warning)
             db.session.add(new_file)
             db.session.flush()  # This will assign an ID to new_file
             
@@ -291,7 +315,8 @@ def submit_for_review():
                     exon_number=result['exon_number'],
                     transcript_biotype=result['transcript_biotype'],
                     mane_transcript=result['mane_transcript'],
-                    mane_transcript_type=result['mane_transcript_type']
+                    mane_transcript_type=result['mane_transcript_type'],
+                    warning=json.dumps(result.get('warning')) if result.get('warning') else None
                 )
                 db.session.add(entry)
             

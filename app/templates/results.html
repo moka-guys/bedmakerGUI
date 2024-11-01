@@ -71,6 +71,7 @@
                                 <th>Transcript Biotype</th>
                                 <th>Ensembl MANE Transcript</th>
                                 <th>MANE Transcript Type</th>
+                                <th>Info</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -87,6 +88,24 @@
                                     <td>{{ result.transcript_biotype }}</td>
                                     <td>{{ result.mane_transcript }}</td>
                                     <td>{{ result.mane_transcript_type }}</td>
+                                    <td>
+                                        {% if result.warning %}
+                                            {% if result.warning.message and "best available GRCh38 MANE transcript match" in result.warning.message %}
+                                                <span class="badge bg-info text-white">
+                                                    <i class="fas fa-info-circle"></i> GRCh38 MANE SELECT equivalent
+                                                </span>
+                                            {% else %}
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="fas fa-exclamation-triangle"></i> 
+                                                    {{ result.warning.message if result.warning is mapping else result.warning }}
+                                                </span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="badge bg-success text-white">
+                                                <i class="fas fa-check"></i> Transcript verified
+                                            </span>
+                                        {% endif %}
+                                    </td>
                                 </tr>
                             {% endfor %}
                         </tbody>
