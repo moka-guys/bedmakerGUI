@@ -4,7 +4,6 @@ database.py - Provides functions to store BED files and their entries in the dat
 Functions:
 - store_bed_file: Stores a BED file and its entries in the database.
 - create_bed_file: Creates a new BED file record in the database.
-- create_bed_entries: Creates new BED entry records associated with a BED file.
 """
 
 from app import db
@@ -29,7 +28,10 @@ def store_bed_file(file_name: str, results: List[Dict], user_id: int, initial_qu
     print("Initial Query:", initial_query)
     print("Assembly:", assembly)
     new_bed_file = create_bed_file(file_name, user_id, initial_query, assembly)
-    create_bed_entries(new_bed_file.id, results)
+    
+    # Use the model's create_entries method
+    BedEntry.create_entries(new_bed_file.id, results)
+    
     db.session.commit()
     return new_bed_file.id
 
@@ -66,27 +68,3 @@ def create_bed_file(file_name: str, user_id: int, initial_query: str, assembly: 
     db.session.add(new_bed_file)
     db.session.flush()
     return new_bed_file
-
-def create_bed_entries(bed_file_id: int, results: List[Dict], padding_5: int, padding_3: int) -> List[BedEntry]:
-    """
-    Creates BED entries for a given file ID.
-    """
-    entries = []
-    for result in results:
-        entry = BedEntry(
-            bed_file_id=bed_file_id,
-            chromosome=result['loc_region'],
-            start=int(result['loc_start']) - padding_5,
-            end=int(result['loc_end']) + padding_3,
-            entrez_id=result['entrez_id'],
-            gene=result['gene'],
-            accession=result['accession'],
-            exon_id=result['exon_id'],
-            exon_number=result['exon_number'],
-            transcript_biotype=result['transcript_biotype'],
-            mane_transcript=result['mane_transcript'],
-            mane_transcript_type=result['mane_transcript_type'],
-            warning=json.dumps(result.get('warning')) if result.get('warning') else None
-        )
-        entries.append(entry)
-    return entries

@@ -10,15 +10,12 @@ Routes:
 - settings(): Displays and updates application settings.
 """
 
-from flask import render_template, redirect, url_for, flash, request, current_app
+from flask import render_template, redirect, url_for, flash, request
 from flask_login import login_user, logout_user, login_required, current_user
 from app.auth import auth_bp
 from app.models import User, Settings
 from app import db
 from .forms import SettingsForm
-
-import json
-import os
 
 @auth_bp.route('/set_authorizer/<int:user_id>', methods=['POST'])
 @login_required

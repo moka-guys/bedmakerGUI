@@ -14,6 +14,8 @@ as needed for the application's functionality.
 from .extensions import db
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
+import json
+from typing import List, Dict
 
 class User(UserMixin, db.Model):
     __tablename__ = 'user'
@@ -65,6 +67,41 @@ class BedEntry(db.Model):
     warning = db.Column(db.String(255))
 
     bed_file = db.relationship('BedFile', back_populates='entries')
+
+    @classmethod
+    def create_entries(cls, bed_file_id: int, results: List[Dict], padding_5: int = 0, padding_3: int = 0) -> List['BedEntry']:
+        """
+        Creates BED entries for a given file ID.
+        
+        Args:
+            bed_file_id: ID of the parent BED file
+            results: List of result dictionaries containing entry data
+            padding_5: 5' padding to apply (default: 0)
+            padding_3: 3' padding to apply (default: 0)
+            
+        Returns:
+            List of created BedEntry instances
+        """
+        entries = []
+        for result in results:
+            entry = cls(
+                bed_file_id=bed_file_id,
+                chromosome=result['loc_region'],
+                start=int(result['loc_start']) - padding_5,
+                end=int(result['loc_end']) + padding_3,
+                entrez_id=result['entrez_id'],
+                gene=result['gene'],
+                accession=result['accession'],
+                exon_id=result.get('exon_id'),
+                exon_number=result.get('exon_number'),
+                transcript_biotype=result.get('transcript_biotype'),
+                mane_transcript=result.get('mane_transcript'),
+                mane_transcript_type=result.get('mane_transcript_type'),
+                warning=json.dumps(result.get('warning')) if result.get('warning') else None
+            )
+            entries.append(entry)
+            db.session.add(entry)
+        return entries
 
 class Settings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
