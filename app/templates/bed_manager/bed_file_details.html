@@ -33,12 +33,12 @@
                     <td>{{ entry.transcript_biotype }}</td>
                     <td>{{ entry.mane_transcript }}</td>
                     <td>{{ entry.mane_transcript_type }}</td>
-                    <td>
+                    <td {% if entry.warning %} style="background-color: #fdf5ee;" {% endif %}>
                         {% if entry.warning %}
                             <span class="text-warning">
                                 <i class="fas fa-exclamation-triangle"></i>
-                                {{ entry.warning.message }}
                             </span>
+                            {{ entry.warning.message }}
                         {% endif %}
                     </td>
                 </tr>
