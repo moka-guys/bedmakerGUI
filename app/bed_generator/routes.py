@@ -25,8 +25,8 @@ from app.bed_generator.utils import (
 from app.bed_generator.logic import process_form_data, store_results_in_session, process_bulk_data, get_mane_plus_clinical_identifiers, generate_bed_file
 from app.forms import SettingsForm, BedGeneratorForm
 from app.bed_generator.bed_generator import generate_bed_files
-from app.models import BedFile, Settings
-from app.bed_generator.database import create_bed_entries
+from app.models import BedFile, Settings, BedEntry
+from app.bed_generator.database import store_bed_file
 import traceback
 import json
 from datetime import datetime 
@@ -265,8 +265,7 @@ def submit_for_review():
         # Create and save entries
         padding_5 = initial_query.get('padding_5', 0)
         padding_3 = initial_query.get('padding_3', 0)
-        entries = create_bed_entries(new_file.id, results, padding_5, padding_3)
-        db.session.bulk_save_objects(entries)
+        BedEntry.create_entries(new_file.id, results, padding_5, padding_3)
         db.session.commit()
 
         # Generate BED files
