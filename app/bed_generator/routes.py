@@ -14,32 +14,24 @@ Routes:
 - download_bed(bed_type): Generates and returns a specific type of BED file.
 - get_published_bed_files(): Retrieves a list of published BED files.
 - get_bed_files(): Retrieves a list of all BED files with their details.
-
-Helper Functions:
-- generate_bed_files(filename, results, settings): Generates different BED file formats based on stored settings.
-- create_bed_entries(bed_file_id, results, padding_5, padding_3): Creates BED entries for a given file ID.
-- collect_warnings(results): Collects and formats warnings from results.
-- increment_version_number(filename): Creates a new version number for an existing BED file.
 """
 
 from flask import render_template, request, jsonify, session, current_app, redirect, url_for, flash
 from flask_login import current_user, login_required
-from typing import List, Dict, Optional
 from app.bed_generator import bed_generator_bp
 from app.bed_generator.utils import (
-    fetch_panels_from_panelapp,
-    store_panels_in_json, get_panels_from_json, load_settings
+    store_panels_in_json, get_panels_from_json, load_settings, collect_warnings, increment_version_number
 )
 from app.bed_generator.logic import process_form_data, store_results_in_session, process_bulk_data, get_mane_plus_clinical_identifiers, update_settings, populate_form_with_settings, generate_bed_file
-from app.bed_generator.bed_generator import BedGenerator
 from app.forms import SettingsForm, BedGeneratorForm
-from app.models import BedFile, BedEntry
-import os
+from app.bed_generator.bed_generator import generate_bed_files
+from app.models import BedFile
+from app.bed_generator.database import create_bed_entries
 import traceback
 import json
 from datetime import datetime 
 from app import db
-import re
+
 
 @bed_generator_bp.route('/', methods=['GET', 'POST'])
 def index():
@@ -234,7 +226,7 @@ def submit_for_review():
         initial_query = data.get('initialQuery', {})
         existing_file_id = data.get('existing_file_id')
 
-        # Extract and standardize assembly information
+        # Extract and standardise assembly information
         assembly = initial_query.get('assembly', 'GRCh38')
         assembly_mapping = {'hg19': 'GRCh37', 'hg38': 'GRCh38', 'GRCh37': 'GRCh37', 'GRCh38': 'GRCh38'}
         assembly = assembly_mapping.get(assembly, 'UNKNOWN')
@@ -291,84 +283,6 @@ def submit_for_review():
         current_app.logger.error(f"Error in submit_for_review: {str(e)}")
         current_app.logger.error(traceback.format_exc())
         return jsonify({'success': False, 'error': str(e)}), 500
-
-def generate_bed_files(filename: str, results: List[Dict], settings: Dict) -> None:
-    """
-    Generates different BED file formats based on stored settings in database.
-    """
-    bed_dir = current_app.config.get('DRAFT_BED_FILES_DIR')
-    os.makedirs(bed_dir, exist_ok=True)
-
-    bed_types = {
-        'raw': BedGenerator.create_raw_bed,
-        'data': BedGenerator.create_data_bed,
-        'sambamba': BedGenerator.create_sambamba_bed,
-        'exomeDepth': BedGenerator.create_exome_depth_bed,
-        'CNV': BedGenerator.create_cnv_bed
-    }
-
-    for bed_type, create_function in bed_types.items():
-        padding = settings.get('padding', {}).get(bed_type, 0)
-        content = (create_function(results, add_chr_prefix=False) if bed_type == 'raw'
-                  else create_function(results, padding, add_chr_prefix=False))
-        
-        file_path = os.path.join(bed_dir, f"{filename}_{bed_type}.bed")
-        with open(file_path, 'w') as f:
-            f.write(content)
-
-def create_bed_entries(bed_file_id: int, results: List[Dict], padding_5: int, padding_3: int) -> List[BedEntry]:
-    """
-    Creates BED entries for a given file ID.
-    """
-    entries = []
-    for result in results:
-        entry = BedEntry(
-            bed_file_id=bed_file_id,
-            chromosome=result['loc_region'],
-            start=int(result['loc_start']) - padding_5,
-            end=int(result['loc_end']) + padding_3,
-            entrez_id=result['entrez_id'],
-            gene=result['gene'],
-            accession=result['accession'],
-            exon_id=result['exon_id'],
-            exon_number=result['exon_number'],
-            transcript_biotype=result['transcript_biotype'],
-            mane_transcript=result['mane_transcript'],
-            mane_transcript_type=result['mane_transcript_type'],
-            warning=json.dumps(result.get('warning')) if result.get('warning') else None
-        )
-        entries.append(entry)
-    return entries
-
-def collect_warnings(results: List[Dict]) -> Optional[str]:
-    """
-    Collects and formats warnings from results.
-    """
-    warnings = []
-    for result in results:
-        if warning := result.get('warning'):
-            warnings.append({
-                'identifier': result.get('identifier'),
-                'message': warning.get('message'),
-                'type': warning.get('type')
-            })
-    
-    if warnings:
-        return json.dumps({
-            'summary': "Some transcripts require clinical review",
-            'details': warnings
-        })
-    return None
-
-def increment_version_number(filename: str) -> str:
-    """
-    Creates a new version number for an existing BED file.
-    """
-    match = re.search(r'_v(\d+)$', filename)
-    if match:
-        current_version = int(match.group(1))
-        return re.sub(r'_v\d+$', f'_v{current_version + 1}', filename)
-    return f"{filename}_v2"
 
 @bed_generator_bp.route('/download_bed/<bed_type>', methods=['POST'])
 def download_bed(bed_type):

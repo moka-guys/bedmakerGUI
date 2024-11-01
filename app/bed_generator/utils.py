@@ -18,9 +18,10 @@ import re
 import os
 import concurrent.futures
 import json
+from flask import current_app
 from app.models import Settings
-from typing import List, Dict, Tuple, Any
-from .api import fetch_variant_info, fetch_data_from_tark, fetch_coordinate_info, fetch_panels_from_panelapp, fetch_genes_for_panel
+from typing import List, Dict, Tuple, Any, Optional
+from .api import fetch_variant_info, fetch_data_from_tark, fetch_coordinate_info, fetch_genes_for_panel
 import datetime
 
 # Constants
@@ -202,3 +203,33 @@ def fetch_and_store_genes_for_panel(panel_id: int) -> None:
     """
     genes = fetch_genes_for_panel(panel_id, include_amber=True, include_red=True)
     store_genes_in_json(panel_id, genes)
+
+def collect_warnings(results: List[Dict]) -> Optional[str]:
+    """
+    Collects and formats warnings from results.
+    """
+    warnings = []
+    for result in results:
+        if warning := result.get('warning'):
+            warnings.append({
+                'identifier': result.get('identifier'),
+                'message': warning.get('message'),
+                'type': warning.get('type')
+            })
+    
+    if warnings:
+        return json.dumps({
+            'summary': "Some transcripts require clinical review",
+            'details': warnings
+        })
+    return None
+
+def increment_version_number(filename: str) -> str:
+    """
+    Creates a new version number for an existing BED file.
+    """
+    match = re.search(r'_v(\d+)$', filename)
+    if match:
+        current_version = int(match.group(1))
+        return re.sub(r'_v\d+$', f'_v{current_version + 1}', filename)
+    return f"{filename}_v2"

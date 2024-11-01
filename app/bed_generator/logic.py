@@ -168,19 +168,9 @@ def generate_bed_file(bed_type: str, results: List[Dict[str, Any]], filename_pre
     if bed_type == 'raw':
         bed_content = BedGenerator.create_raw_bed(results, add_chr_prefix)
         filename = f'{filename_prefix}_raw.bed' if filename_prefix else 'raw.bed'
-    elif bed_type == 'data':
-        bed_content = BedGenerator.create_data_bed(results, settings['data_padding'], add_chr_prefix)
-        filename = f'{filename_prefix}_data.bed' if filename_prefix else 'data.bed'
-    elif bed_type == 'sambamba':
-        bed_content = BedGenerator.create_sambamba_bed(results, settings['sambamba_padding'], add_chr_prefix)
-        filename = f'{filename_prefix}_sambamba.bed' if filename_prefix else 'sambamba.bed'
-    elif bed_type == 'exomeDepth':
-        bed_content = BedGenerator.create_exome_depth_bed(results, settings['exomeDepth_padding'], add_chr_prefix)
-        filename = f'{filename_prefix}_exomeDepth.bed' if filename_prefix else 'exomeDepth.bed'
-    elif bed_type == 'cnv':
-        bed_content = BedGenerator.create_cnv_bed(results, settings['cnv_padding'], add_chr_prefix)
-        filename = f'{filename_prefix}_CNV.bed' if filename_prefix else 'CNV.bed'
     else:
-        raise ValueError('Invalid BED type')
+        padding = settings.get(f'{bed_type.lower()}_padding', 0)
+        bed_content = BedGenerator.create_formatted_bed(results, bed_type.lower(), padding, add_chr_prefix)
+        filename = f'{filename_prefix}_{bed_type}.bed' if filename_prefix else f'{bed_type}.bed'
     
     return bed_content, filename
