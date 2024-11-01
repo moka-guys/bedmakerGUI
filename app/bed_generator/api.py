@@ -40,36 +40,43 @@ class ApiClient:
     def make_api_request(url: str, params: Optional[Dict] = None, retries: int = 3) -> Optional[Dict]:
         """
         Makes a GET request to the specified URL with optional parameters and returns the JSON response.
-        Implements a retry mechanism with exponential backoff for handling rate limits.
+        Implements a retry mechanism with exponential backoff for handling rate limits and server errors.
 
         Args:
             url (str): The URL to send the GET request to.
             params (Optional[Dict]): A dictionary of query parameters to include in the request.
-            retries (int): The number of retry attempts for handling rate limits.
+            retries (int): The number of retry attempts for handling errors.
 
         Returns:
             Optional[Dict]: The JSON response from the API if the request is successful, otherwise None.
         """
         attempt = 0
-        while attempt <= retries:
+        while attempt < retries:  # Changed from <= to < to match actual retry count
             try:
                 response = requests.get(url, params=params)
                 response.raise_for_status()
                 return response.json()
             except requests.exceptions.HTTPError as e:
-                if response.status_code == 429:
-                    # Handle rate limit error
+                if response.status_code in [429, 500, 502, 503, 504]:
                     attempt += 1
                     wait_time = 2 ** attempt  # Exponential backoff
-                    logger.info(f"Rate limit exceeded. Retrying in {wait_time} seconds...")
+                    logger.warning(f"API request failed with status {response.status_code}. "
+                                 f"Attempt {attempt}/{retries}. "
+                                 f"Retrying in {wait_time} seconds...")
                     time.sleep(wait_time)
+                    if attempt == retries:
+                        logger.error(f"Max retries exceeded for URL: {url}")
+                        return None
                 else:
-                    logger.error(f"API request failed: {e}")
-                    raise ApiError(f"API request failed: {e}")
-            except requests.RequestException as e:
-                logger.error(f"API request failed: {e}")
-                raise ApiError(f"API request failed: {e}")
-        logger.error("Max retries exceeded.")
+                    logger.error(f"API request failed with status {response.status_code}: {e}")
+                    return None
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Request failed: {e}")
+                return None
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
+                return None
+        
         return None
 
     @classmethod
