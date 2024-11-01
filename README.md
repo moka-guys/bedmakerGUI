@@ -144,3 +144,17 @@ docker-compose up
 - Uses IGV.js v3.0.8 for genomic visualization
 - Integrates with PanelApp v2 API
 - Utilises Ensembl VEP (v113) and TARK (v1.0.1) RESTful APIs for metadata
+
+## Edge case testing
+
+#### MANE Clinical Plus transcripts
+
+```
+SLC39A14 query in GRCh38 returns both MANE SELECT and MANE CLINICAL PLUS successfully.
+Warning is presented to user.
+
+SLC39A14 query in GRCh37 returns both MANE SELECT equivalent successfully.
+No warning is presented as MANE CLINICAL PLUS is not available in GRCh37.
+```
+
+#### UTRs spanning multiple exons

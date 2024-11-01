@@ -14,10 +14,17 @@ Routes:
 - download_bed(bed_type): Generates and returns a specific type of BED file.
 - get_published_bed_files(): Retrieves a list of published BED files.
 - get_bed_files(): Retrieves a list of all BED files with their details.
+
+Helper Functions:
+- generate_bed_files(filename, results, settings): Generates different BED file formats based on stored settings.
+- create_bed_entries(bed_file_id, results, padding_5, padding_3): Creates BED entries for a given file ID.
+- collect_warnings(results): Collects and formats warnings from results.
+- increment_version_number(filename): Creates a new version number for an existing BED file.
 """
 
 from flask import render_template, request, jsonify, session, current_app, redirect, url_for, flash
 from flask_login import current_user, login_required
+from typing import List, Dict, Optional
 from app.bed_generator import bed_generator_bp
 from app.bed_generator.utils import (
     fetch_panels_from_panelapp,
@@ -110,6 +117,15 @@ def results():
 
 @bed_generator_bp.route('/adjust_padding', methods=['POST'])
 def adjust_padding():
+    """
+    Adjusts the padding for results.
+
+    Expects JSON data with 'padding_5', 'padding_3', and 'results'.
+    Recalculates 'loc_start' and 'loc_end' for each result based on the provided padding values.
+
+    Returns:
+        JSON response with the updated results and a success status.
+    """
     data = request.get_json()
     padding_5 = int(data.get('padding_5', 0))
     padding_3 = int(data.get('padding_3', 0))
@@ -183,6 +199,15 @@ def get_genes_by_panel(panel_id):
 @bed_generator_bp.route('/settings', methods=['GET', 'POST'])
 @login_required
 def settings():
+    """
+    Displays and updates application settings.
+
+    GET: Populates the settings form with current settings and renders the settings page.
+    POST: Validates and updates the settings based on user input, then redirects to the settings page.
+
+    Returns:
+        Renders the settings page with the form.
+    """
     form = SettingsForm()
     if form.validate_on_submit():
         update_settings(form)
@@ -194,169 +219,156 @@ def settings():
 
 @bed_generator_bp.route('/submit_for_review', methods=['POST'])
 def submit_for_review():
+    """
+    Submits a BED file for review in bed_manager.
+
+    Expects JSON data with 'results', 'fileName', 'initialQuery', and optionally 'existing_file_id'.
+
+    Returns:
+        JSON response indicating success or failure, with a message and the new BED file ID if successful.
+    """
     try:
         data = request.json
         results = data.get('results', [])
         fileName = data.get('fileName', '')
         initial_query = data.get('initialQuery', {})
+        existing_file_id = data.get('existing_file_id')
 
-        print("Received initial_query:", initial_query)
-
-        # Extract values from initial_query
+        # Extract and standardize assembly information
         assembly = initial_query.get('assembly', 'GRCh38')
-        include_5utr = initial_query.get('include5UTR', False)
-        include_3utr = initial_query.get('include3UTR', False)
-        padding_5 = initial_query.get('padding_5', 0)
-        padding_3 = initial_query.get('padding_3', 0)
-
-        print(f"Assembly: {assembly}, Include 5' UTR: {include_5utr}, Include 3' UTR: {include_3utr}")
-        print(f"Padding 5': {padding_5}, Padding 3': {padding_3}")
-
-        # Convert assembly to standard format
-        assembly_mapping = {
-            'hg19': 'GRCh37',
-            'hg38': 'GRCh38',
-            'GRCh37': 'GRCh37',
-            'GRCh38': 'GRCh38'
-        }
+        assembly_mapping = {'hg19': 'GRCh37', 'hg38': 'GRCh38', 'GRCh37': 'GRCh37', 'GRCh38': 'GRCh38'}
         assembly = assembly_mapping.get(assembly, 'UNKNOWN')
 
-        # Properly format as JSON string
-        initial_query_json = json.dumps(initial_query, ensure_ascii=False)
-
-        existing_file_id = data.get('existing_file_id')
+        # Common parameters for BED file creation
+        file_params = {
+            'status': 'pending',
+            'submitter_id': current_user.id,
+            'initial_query': json.dumps(initial_query, ensure_ascii=False),
+            'assembly': assembly,
+            'include_3utr': initial_query.get('include3UTR', False),
+            'include_5utr': initial_query.get('include5UTR', False),
+            'warning': collect_warnings(results)
+        }
 
         if existing_file_id:
             existing_file = BedFile.query.get(existing_file_id)
-            if existing_file:
-                # Increment version
-                match = re.search(r'_v(\d+)$', existing_file.filename)
-                if match:
-                    current_version = int(match.group(1))
-                    new_filename = re.sub(r'_v\d+$', f'_v{current_version + 1}', existing_file.filename)
-                else:
-                    new_filename = f"{existing_file.filename}_v2"
-                
-                # Move existing file to draft
-                existing_file.status = 'draft'
-                db.session.add(existing_file)
-                
-                # Create new version with updated UTR inclusion
-                new_file = BedFile(filename=new_filename, status='pending', submitter_id=current_user.id, 
-                                   initial_query=initial_query_json, assembly=assembly,
-                                   include_3utr=include_3utr, include_5utr=include_5utr)
-                db.session.add(new_file)
-                db.session.flush()  # This will assign an ID to new_file
-                
-                # Add entries to new file
-                for result in results:
-                    entry = BedEntry(
-                        bed_file_id=new_file.id,
-                        chromosome=result['loc_region'],
-                        start=int(result['loc_start']) - padding_5,
-                        end=int(result['loc_end']) + padding_3,
-                        entrez_id=result['entrez_id'],
-                        gene=result['gene'],
-                        accession=result['accession'],
-                        exon_id=result['exon_id'],
-                        exon_number=result['exon_number'],
-                        transcript_biotype=result['transcript_biotype'],
-                        mane_transcript=result['mane_transcript'],
-                        mane_transcript_type=result['mane_transcript_type'],
-                        warning=json.dumps(result.get('warning')) if result.get('warning') else None
-                    )
-                    db.session.add(entry)
-                
-                db.session.commit()
-                return jsonify({'success': True, 'message': 'BED file updated and new version created successfully', 'bed_file_id': new_file.id})
-            else:
+            if not existing_file:
                 return jsonify({'success': False, 'error': 'Existing file not found'}), 404
-        
+
+            # Handle version update
+            new_filename = increment_version_number(existing_file.filename)
+            existing_file.status = 'draft'
+            db.session.add(existing_file)
+
+            new_file = BedFile(filename=new_filename, **file_params)
         elif fileName:
-            # Create new version with warnings from results
-            warnings = []
-            for result in results:
-                if warning := result.get('warning'):
-                    warnings.append({
-                        'identifier': result.get('identifier'),
-                        'message': warning.get('message'),
-                        'type': warning.get('type')
-                    })
-            
-            # Create a summary warning if needed
-            file_warning = None
-            if warnings:
-                file_warning = json.dumps({
-                    'summary': "Some transcripts require clinical review",
-                    'details': warnings
-                })
-
-            new_file = BedFile(filename=fileName, 
-                               status='pending', 
-                               submitter_id=current_user.id, 
-                               initial_query=initial_query_json, 
-                               assembly=assembly,
-                               include_3utr=include_3utr, 
-                               include_5utr=include_5utr,
-                               warning=file_warning)
-            db.session.add(new_file)
-            db.session.flush()  # This will assign an ID to new_file
-            
-            for result in results:
-                entry = BedEntry(
-                    bed_file_id=new_file.id,
-                    chromosome=result['loc_region'],
-                    start=int(result['loc_start']) - padding_5,
-                    end=int(result['loc_end']) + padding_3,
-                    entrez_id=result['entrez_id'],
-                    gene=result['gene'],
-                    accession=result['accession'],
-                    exon_id=result['exon_id'],
-                    exon_number=result['exon_number'],
-                    transcript_biotype=result['transcript_biotype'],
-                    mane_transcript=result['mane_transcript'],
-                    mane_transcript_type=result['mane_transcript_type'],
-                    warning=json.dumps(result.get('warning')) if result.get('warning') else None
-                )
-                db.session.add(entry)
-            
-            db.session.commit()
-
-            # Generate and save different BED file formats to mokabed repo draft folder
-            bed_dir = current_app.config.get('DRAFT_BED_FILES_DIR') # load via config.py/dotenv
-            os.makedirs(bed_dir, exist_ok=True)
-
-            settings = load_settings()
-            bed_types = {
-                'raw': BedGenerator.create_raw_bed,
-                'data': BedGenerator.create_data_bed,
-                'sambamba': BedGenerator.create_sambamba_bed,
-                'exomeDepth': BedGenerator.create_exome_depth_bed,
-                'CNV': BedGenerator.create_cnv_bed
-            }
-
-            for bed_type, create_function in bed_types.items():
-                # Use a default padding of 0 if 'padding' is not in settings
-                padding = settings.get('padding', {}).get(bed_type, 0)
-                
-                # Special handling for raw_bed which doesn't use padding
-                if bed_type == 'raw':
-                    content = create_function(results, add_chr_prefix=False)
-                else:
-                    content = create_function(results, padding, add_chr_prefix=False)
-                
-                file_path = os.path.join(bed_dir, f"{fileName}_{bed_type}.bed")
-                with open(file_path, 'w') as f:
-                    f.write(content)
-
-            return jsonify({'success': True, 'message': 'New BED file created and saved successfully', 'bed_file_id': new_file.id})
-        
+            new_file = BedFile(filename=fileName, **file_params)
         else:
             return jsonify({'success': False, 'error': 'No file name provided and no existing file selected'}), 400
+
+        # Create and save the new file
+        db.session.add(new_file)
+        db.session.flush()
+
+        # Create and save entries
+        padding_5 = initial_query.get('padding_5', 0)
+        padding_3 = initial_query.get('padding_3', 0)
+        entries = create_bed_entries(new_file.id, results, padding_5, padding_3)
+        db.session.bulk_save_objects(entries)
+        db.session.commit()
+
+        # Generate BED files
+        if fileName:
+            generate_bed_files(fileName, results, load_settings())
+
+        return jsonify({
+            'success': True,
+            'message': 'BED file created and saved successfully',
+            'bed_file_id': new_file.id
+        })
+
     except Exception as e:
         current_app.logger.error(f"Error in submit_for_review: {str(e)}")
         current_app.logger.error(traceback.format_exc())
         return jsonify({'success': False, 'error': str(e)}), 500
+
+def generate_bed_files(filename: str, results: List[Dict], settings: Dict) -> None:
+    """
+    Generates different BED file formats based on stored settings in database.
+    """
+    bed_dir = current_app.config.get('DRAFT_BED_FILES_DIR')
+    os.makedirs(bed_dir, exist_ok=True)
+
+    bed_types = {
+        'raw': BedGenerator.create_raw_bed,
+        'data': BedGenerator.create_data_bed,
+        'sambamba': BedGenerator.create_sambamba_bed,
+        'exomeDepth': BedGenerator.create_exome_depth_bed,
+        'CNV': BedGenerator.create_cnv_bed
+    }
+
+    for bed_type, create_function in bed_types.items():
+        padding = settings.get('padding', {}).get(bed_type, 0)
+        content = (create_function(results, add_chr_prefix=False) if bed_type == 'raw'
+                  else create_function(results, padding, add_chr_prefix=False))
+        
+        file_path = os.path.join(bed_dir, f"{filename}_{bed_type}.bed")
+        with open(file_path, 'w') as f:
+            f.write(content)
+
+def create_bed_entries(bed_file_id: int, results: List[Dict], padding_5: int, padding_3: int) -> List[BedEntry]:
+    """
+    Creates BED entries for a given file ID.
+    """
+    entries = []
+    for result in results:
+        entry = BedEntry(
+            bed_file_id=bed_file_id,
+            chromosome=result['loc_region'],
+            start=int(result['loc_start']) - padding_5,
+            end=int(result['loc_end']) + padding_3,
+            entrez_id=result['entrez_id'],
+            gene=result['gene'],
+            accession=result['accession'],
+            exon_id=result['exon_id'],
+            exon_number=result['exon_number'],
+            transcript_biotype=result['transcript_biotype'],
+            mane_transcript=result['mane_transcript'],
+            mane_transcript_type=result['mane_transcript_type'],
+            warning=json.dumps(result.get('warning')) if result.get('warning') else None
+        )
+        entries.append(entry)
+    return entries
+
+def collect_warnings(results: List[Dict]) -> Optional[str]:
+    """
+    Collects and formats warnings from results.
+    """
+    warnings = []
+    for result in results:
+        if warning := result.get('warning'):
+            warnings.append({
+                'identifier': result.get('identifier'),
+                'message': warning.get('message'),
+                'type': warning.get('type')
+            })
+    
+    if warnings:
+        return json.dumps({
+            'summary': "Some transcripts require clinical review",
+            'details': warnings
+        })
+    return None
+
+def increment_version_number(filename: str) -> str:
+    """
+    Creates a new version number for an existing BED file.
+    """
+    match = re.search(r'_v(\d+)$', filename)
+    if match:
+        current_version = int(match.group(1))
+        return re.sub(r'_v\d+$', f'_v{current_version + 1}', filename)
+    return f"{filename}_v2"
 
 @bed_generator_bp.route('/download_bed/<bed_type>', methods=['POST'])
 def download_bed(bed_type):
