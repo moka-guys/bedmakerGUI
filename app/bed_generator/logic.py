@@ -130,7 +130,7 @@ def get_mane_plus_clinical_identifiers(results: List[Dict[str, Any]]) -> Set[str
     return set(
         result.get('gene', 'Unknown')
         for result in results
-        if result is not None and result.get('mane_transcript_type') == 'MANE PLUS CLINICAL'
+        if isinstance(result, dict) and result.get('mane_transcript_type') == 'MANE PLUS CLINICAL'
     )
 
 def generate_bed_file(bed_type: str, results: List[Dict[str, Any]], filename_prefix: str, settings: Dict[str, int], add_chr_prefix: bool) -> Tuple[str, str]:

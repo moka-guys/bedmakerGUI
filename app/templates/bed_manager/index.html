@@ -112,7 +112,7 @@
         </div>
     </div>
 
-    <!-- Add this modal at the end of the file, before the closing body tag -->
+    <!-- Original query details modal -->
     <div class="modal fade" id="detailsModal" tabindex="-1" aria-labelledby="detailsModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -121,10 +121,26 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <p><strong>Created:</strong> <span id="createdDate"></span></p>
-                    <p><strong>Last Updated:</strong> <span id="updatedDate"></span></p>
-                    <p><strong>Initial Query:</strong></p>
-                    <pre id="initialQuery" style="white-space: pre-wrap; word-wrap: break-word;"></pre>
+                    <div class="mb-3">
+                        <p><strong>Created:</strong> <span id="createdDate"></span></p>
+                        <p><strong>Last Updated:</strong> <span id="updatedDate"></span></p>
+                    </div>
+                    
+                    <!-- Warning section -->
+                    <div id="warningSection" style="display: none;" class="mb-3">
+                        <p><strong>Warnings:</strong></p>
+                        <div class="alert alert-warning">
+                            <div id="warningContent"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Initial Query section -->
+                    <div class="mb-3">
+                        <p><strong>Initial query:</strong></p>
+                        <div class="alert alert-info">
+                            <pre class="mb-0"><code id="initialQuery"></code></pre>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -188,6 +204,14 @@
 
             // Update the "Authorise and publish BED" button click handler
             document.querySelector('#bedFileModal .btn-primary').addEventListener('click', function() {
+                // Add warning acknowledgment check
+                if (document.getElementById('warningAcknowledged')) {
+                    if (!document.getElementById('warningAcknowledged').checked) {
+                        alert('Please acknowledge the warnings before authorising this file.');
+                        return;
+                    }
+                }
+
                 var fileId = this.getAttribute('data-file-id');
                 var fileAction = document.getElementById('fileAction').value;
                 
@@ -196,7 +220,10 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ fileAction: fileAction }),
+                    body: JSON.stringify({ 
+                        fileAction: fileAction,
+                        warningsAcknowledged: true
+                    }),
                 })
                 .then(response => response.json())
                 .then(data => {
@@ -233,6 +260,14 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
+                            // Store any warnings in localStorage before redirecting
+                            const warningSection = document.getElementById('warningSection');
+                            if (warningSection && warningSection.style.display !== 'none') {
+                                const warningContent = document.getElementById('warningContent').innerHTML;
+                                localStorage.setItem('bedWarnings', warningContent);
+                            } else {
+                                localStorage.removeItem('bedWarnings');
+                            }
                             window.location.href = data.redirect_url;
                         } else {
                             alert('Failed to reload BED results: ' + data.error);
@@ -300,10 +335,48 @@
                     fetch('/bed_manager/file_details/' + fileId)
                     .then(response => response.json())
                     .then(data => {
-                        console.log('Data received:', data); // Debugging log
                         document.getElementById('createdDate').textContent = new Date(data.created_at).toLocaleString();
                         document.getElementById('updatedDate').textContent = new Date(data.updated_at).toLocaleString();
-                        document.getElementById('initialQuery').textContent = JSON.stringify(data.initial_query, null, 2);
+                        
+                        // Parse the initial query if it's a string
+                        const initialQuery = typeof data.initial_query === 'string' ? 
+                            JSON.parse(data.initial_query) : data.initial_query;
+                        
+                        // Format the initial query with proper indentation
+                        document.getElementById('initialQuery').textContent = 
+                            JSON.stringify(initialQuery, null, 2);
+                        
+                        // Handle warning display
+                        const warningSection = document.getElementById('warningSection');
+                        const warningContent = document.getElementById('warningContent');
+                        
+                        if (data.warning) {
+                            let warningObj = typeof data.warning === 'string' ? 
+                                JSON.parse(data.warning) : data.warning;
+                                
+                            let warningHTML = `<p><strong>${warningObj.summary}</strong></p>`;
+                            if (warningObj.details && warningObj.details.length > 0) {
+                                // Create a Set to track unique identifier-message combinations
+                                const uniqueWarnings = new Set();
+                                warningObj.details.forEach(detail => {
+                                    const warningKey = `${detail.identifier}:${detail.message}`;
+                                    uniqueWarnings.add(warningKey);
+                                });
+                                
+                                warningHTML += '<ul>';
+                                uniqueWarnings.forEach(warning => {
+                                    const [identifier, message] = warning.split(':');
+                                    warningHTML += `<li><strong>${identifier}:</strong> ${message}</li>`;
+                                });
+                                warningHTML += '</ul>';
+                            }
+                            
+                            warningContent.innerHTML = warningHTML;
+                            warningSection.style.display = 'block';
+                        } else {
+                            warningSection.style.display = 'none';
+                        }
+                        
                         var detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'));
                         detailsModal.show();
                     })

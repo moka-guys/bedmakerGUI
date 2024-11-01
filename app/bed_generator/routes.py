@@ -63,10 +63,14 @@ def bulk_process():
     data = request.get_json()
     try:
         results = process_bulk_data(data)
-        # Add 'original_loc_start' and 'original_loc_end' to each result
+        # Only add original locations if they don't already exist
         for result in results:
-            result['original_loc_start'] = result['loc_start']
-            result['original_loc_end'] = result['loc_end']
+            if isinstance(result, dict):  # Ensure result is a dictionary
+                if 'original_loc_start' not in result:
+                    result['original_loc_start'] = result.get('loc_start')
+                if 'original_loc_end' not in result:
+                    result['original_loc_end'] = result.get('loc_end')
+        
         session['results'] = results
         session['assembly'] = data.get('assembly', 'GRCh38')
         session['initial_query'] = data.get('initial_query', {})
@@ -91,7 +95,6 @@ def results():
     
     print("Results:", results)
     print("assembly:", assembly)
-    print("initial_query:", initial_query)  # Debug print
     
     session['results'] = []
     session['initial_query'] = {}
@@ -123,10 +126,14 @@ def adjust_padding():
     padding_3 = int(data.get('padding_3', 0))
     results = data.get('results', [])
 
-    # Recalculate loc_start and loc_end based on new padding
     for result in results:
-        result['loc_start'] = int(result['original_loc_start']) - padding_5
-        result['loc_end'] = int(result['original_loc_end']) + padding_3
+        strand = result.get('loc_strand', 1)  # Default to forward strand if not specified
+        if strand > 0:  # Forward strand
+            result['loc_start'] = int(result['original_loc_start']) - padding_5
+            result['loc_end'] = int(result['original_loc_end']) + padding_3
+        else:  # Reverse strand
+            result['loc_start'] = int(result['original_loc_start']) - padding_3
+            result['loc_end'] = int(result['original_loc_end']) + padding_5
 
     return jsonify({'success': True, 'results': results})
 

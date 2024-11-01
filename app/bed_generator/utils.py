@@ -35,24 +35,15 @@ def load_settings():
 def process_identifiers(identifiers: List[str], assembly: str, include_5utr: bool, include_3utr: bool) -> Tuple[List[Dict[str, Any]], List[str]]:
     """
     Processes a list of genetic identifiers, fetching data and applying UTR and padding adjustments.
-
-    Args:
-        identifiers: A list of genetic identifiers (e.g., rsIDs or TARK IDs).
-        assembly: The genome assembly version (e.g., 'GRCh38').
-        include_5utr: Whether to include the 5' UTR in the results.
-        include_3utr: Whether to include the 3' UTR in the results.
-
-    Returns:
-        A tuple containing a list of processed results and a list of identifiers with no data.
     """
     results = []
     no_data_identifiers = []
+    
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
         future_to_id = {}
         for identifier in identifiers:
-            # Determine the type of identifier and submit the appropriate fetch task
             if re.match(r'^RS\d+$', identifier, re.IGNORECASE):
-                print(f"Processing rsID: {identifier}")  # Debug print
+                print(f"Processing rsID: {identifier}")
                 future_to_id[executor.submit(fetch_variant_info, identifier, assembly)] = identifier
             else:
                 future_to_id[executor.submit(fetch_data_from_tark, identifier, assembly)] = identifier
@@ -63,7 +54,16 @@ def process_identifiers(identifiers: List[str], assembly: str, include_5utr: boo
                 data = future.result()
                 if data:
                     if isinstance(data, list):
-                        # Handle TARK data
+                        # If we're looking for GRCh37 and no data found, try using MANE SELECT stable_id
+                        if assembly == 'GRCh37' and not any(d.get('assembly_name') == 'GRCh37' for d in data):
+                            mane_select = next((d for d in data if d.get('mane_transcript_type') == 'MANE SELECT'), None)
+                            if mane_select and mane_select.get('stable_id'):
+                                print(f"Attempting secondary lookup using MANE SELECT stable_id: {mane_select['stable_id']}")
+                                secondary_data = fetch_data_from_tark(mane_select['stable_id'], assembly)
+                                if secondary_data:
+                                    data = secondary_data
+
+                        # Process TARK data
                         for r in data:
                             if r is None:
                                 continue
@@ -71,34 +71,64 @@ def process_identifiers(identifiers: List[str], assembly: str, include_5utr: boo
                             if processed_r:
                                 results.append(processed_r)
                     else:
-                        # Handle variant data
-                        print(f"Variant data for {identifier}: {data}")  # Debug print
-                        results.append(data)
+                        # Handle VariantInfo dataclass
+                        variant_dict = {
+                            'loc_region': data.loc_region,
+                            'loc_start': data.loc_start,
+                            'loc_end': data.loc_end,
+                            'gene': data.gene,
+                            'accession': data.accession,
+                            'entrez_id': data.entrez_id,
+                            'biotype': data.transcript_biotype,
+                            'most_severe_consequence': data.most_severe_consequence,
+                            'allele_string': data.allele_string,
+                            'original_loc_start': data.loc_start,
+                            'original_loc_end': data.loc_end
+                        }
+                        results.append(variant_dict)
                 else:
                     no_data_identifiers.append(identifier)
                     print(f"No data found for {identifier}")
             except Exception as e:
                 print(f"Error processing identifier {identifier}: {e}")
+                no_data_identifiers.append(identifier)
     
     return results, no_data_identifiers
 
-def process_tark_data(r: Dict[str, Any], include_5utr: bool, include_3utr: bool) -> Dict[str, Any]:
+def process_tark_data(r: Dict[str, Any], include_5utr: bool, include_3utr: bool) -> Optional[Dict[str, Any]]:
     """
     Processes a single TARK data entry, adjusting for UTRs and padding.
+    
+    Args:
+        r: Dictionary containing TARK data
+        include_5utr: Boolean indicating whether to include 5' UTR
+        include_3utr: Boolean indicating whether to include 3' UTR
+        
+    Returns:
+        Optional[Dict[str, Any]]: Processed data dictionary or None if invalid
     """
-    strand = r.get('loc_strand')
+    # Early return if essential data is missing
+    if r is None or 'loc_start' not in r or 'loc_end' not in r:
+        return None
+
+    strand = r.get('loc_strand', 1)  # Default to positive strand if not specified
+    
+    # Store original coordinates
+    r['original_loc_start'] = r['loc_start']
+    r['original_loc_end'] = r['loc_end']
     
     if strand == 1:  # Positive strand
-        if not include_5utr and r.get('five_prime_utr'):
+        if not include_5utr and r.get('five_prime_utr', {}).get('end'):
             r['loc_start'] = max(r['loc_start'], r['five_prime_utr']['end'])
-        if not include_3utr and r.get('three_prime_utr'):
+        if not include_3utr and r.get('three_prime_utr', {}).get('start'):
             r['loc_end'] = min(r['loc_end'], r['three_prime_utr']['start'])
     else:  # Negative strand
-        if not include_5utr and r.get('five_prime_utr'):
+        if not include_5utr and r.get('five_prime_utr', {}).get('end'):
             r['loc_end'] = min(r['loc_end'], r['five_prime_utr']['end'])
-        if not include_3utr and r.get('three_prime_utr'):
+        if not include_3utr and r.get('three_prime_utr', {}).get('start'):
             r['loc_start'] = max(r['loc_start'], r['three_prime_utr']['start'])
     
+    # Validate final coordinates
     return r if r['loc_start'] < r['loc_end'] else None
 
 def process_coordinates(coordinates: List[str], assembly: str = 'GRCh38') -> List[Dict[str, Any]]:

@@ -158,3 +158,17 @@ No warning is presented as MANE CLINICAL PLUS is not available in GRCh37.
 ```
 
 #### UTRs spanning multiple exons
+
+#### CPv2, hg19 - 660 gene query
+
+```
+Options
+BED file generated with 
+
+Problematic genes:
+MAP3K20 - No hg19 transcripts are available in the TARK API for this query.
+RNU4ATAC - non_protein_coding transcript selected. Adjust logic to flag and include in results.
+RMRP - non_protein_coding transcript selected. Adjust logic to flag and include in results.
+RNU12 - non_protein_coding transcript selected. Adjust logic to flag and include in results.
+TERC - non_protein_coding transcript selected. Adjust logic to flag and include in results.
+```

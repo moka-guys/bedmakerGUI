@@ -13,7 +13,7 @@ Functions:
 
 import requests
 import re
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional
 import time
 import logging
 from dataclasses import dataclass
@@ -154,7 +154,6 @@ def fetch_data_from_tark(identifier: str, assembly: str) -> Optional[List[Dict]]
     Returns:
         Optional[List[Dict]]: A list of dictionaries containing transcript data if successful, otherwise None.
     """
-    # Split the identifier into base accession and version (if provided)
     base_accession = identifier.split('.')[0]
     version = identifier.split('.')[1] if '.' in identifier else None
 
@@ -171,7 +170,27 @@ def fetch_data_from_tark(identifier: str, assembly: str) -> Optional[List[Dict]]
 
     transcripts = select_transcripts(data, assembly, version)
     if not transcripts and assembly == 'GRCh37':
-        return fetch_data_from_tark_with_hg38(transcripts[0]['stable_id'] if transcripts else base_accession)
+        # First try to get GRCh38 data to find MANE SELECT
+        grch38_params = {**params, 'assembly_name': 'GRCh38'}
+        grch38_data = ApiClient.get_tark_data(search_url, grch38_params)
+        if grch38_data:
+            grch38_transcripts = select_transcripts(grch38_data, 'GRCh38', version)
+            mane_select = next((t for t in grch38_transcripts if t.get('mane_transcript_type') == 'MANE SELECT'), None)
+            if mane_select:
+                warning = {
+                    'message': f"No direct GRCh37 transcript found. Using GRCh38 MANE SELECT transcript {mane_select['stable_id']} to find matching GRCh37 version",
+                    'identifier': identifier,
+                    'type': 'assembly_mapping'
+                }
+                return fetch_data_from_tark_with_hg38(mane_select['stable_id'], warning)
+        
+        # If no MANE SELECT found, try with base accession with a warning
+        warning = {
+            'message': "No MANE SELECT transcript found. Using base accession for GRCh37 lookup - clinical review recommended",
+            'identifier': identifier,
+            'type': 'assembly_mapping'
+        }
+        return fetch_data_from_tark_with_hg38(base_accession, warning)
 
     return process_transcripts(transcripts, base_accession)
 
@@ -197,7 +216,7 @@ def select_transcripts(data: List[Dict], assembly: str, version: Optional[str] =
             return version_transcripts
 
     if assembly == 'GRCh38':
-        # Prioritizes MANE transcripts if available for GRCh38.
+        # Prioritises MANE transcripts if available for GRCh38.
         mane_transcripts = [t for t in assembly_transcripts if t.get('mane_transcript_type') in ['MANE PLUS CLINICAL', 'MANE SELECT']]
         if mane_transcripts:
             return mane_transcripts
@@ -220,7 +239,14 @@ def select_transcripts(data: List[Dict], assembly: str, version: Optional[str] =
 
     # If no MANE transcripts or matching GRCh37 transcript
     if assembly_transcripts:
-        selected = max(assembly_transcripts, key=lambda x: int(x['stable_id_version']))
+        # Add null check and default to 0 if version is missing or invalid
+        def get_version(transcript):
+            try:
+                return int(transcript.get('stable_id_version', 0))
+            except (TypeError, ValueError):
+                return 0
+                
+        selected = max(assembly_transcripts, key=get_version)
         identifier = f"{selected['stable_id']}.{selected['stable_id_version']}"
         selected['warning'] = {
             'message': "No MANE transcript available. Selected highest version number - clinical review recommended",
@@ -281,12 +307,13 @@ def process_transcripts(transcripts: List[Dict], identifier: str) -> List[Dict]:
             })
     return results
 
-def fetch_data_from_tark_with_hg38(hg38_identifier: str) -> Optional[List[Dict]]:
+def fetch_data_from_tark_with_hg38(hg38_identifier: str, warning: Optional[Dict] = None) -> Optional[List[Dict]]:
     """
     Retrieves GRCh37 transcript data using a GRCh38 identifier.
 
     Args:
         hg38_identifier (str): The GRCh38 identifier for the transcript.
+        warning (Optional[Dict]): Warning to propagate to the results.
 
     Returns:
         Optional[List[Dict]]: A list of dictionaries containing GRCh37 transcript data if successful, otherwise None.
@@ -303,6 +330,11 @@ def fetch_data_from_tark_with_hg38(hg38_identifier: str) -> Optional[List[Dict]]
 
     hg37_transcripts = [max((item for item in data if item['assembly'] == 'GRCh37'), key=lambda x: int(x['stable_id_version']), default=None)]
     gene_name = next((gene['name'] for item in data for gene in item.get('genes', []) if gene['name']), None)
+
+    if warning:
+        for transcript in hg37_transcripts:
+            if transcript:
+                transcript['warning'] = warning
 
     return process_transcripts(hg37_transcripts, gene_name or hg38_identifier)
 
@@ -394,7 +426,7 @@ def process_coordinate_data(data: List[Dict], chrom: str, start: int, end: int, 
     elif unknown_features:
         if len(unknown_features) > 1:
             for feature in unknown_features:
-                feature['alert'] = f"Coordinate {coord} overlaps multiple unknown genes."
+                feature['alert'] = f"Coordinate {coord} overlaps multiple uncharacterised genomic regions with the VEP API."
         return unknown_features
     else:
         return [{
