@@ -67,28 +67,26 @@ def create_bed_file(file_name: str, user_id: int, initial_query: str, assembly: 
     db.session.flush()
     return new_bed_file
 
-def create_bed_entries(bed_file_id: int, results: List[Dict]) -> None:
+def create_bed_entries(bed_file_id: int, results: List[Dict], padding_5: int, padding_3: int) -> List[BedEntry]:
     """
-    Creates new BED entry records associated with a BED file.
-
-    Args:
-        bed_file_id (int): The ID of the BED file to associate entries with.
-        results (List[Dict]): A list of dictionaries containing BED entry data.
+    Creates BED entries for a given file ID.
     """
+    entries = []
     for result in results:
-        new_entry = BedEntry(
+        entry = BedEntry(
             bed_file_id=bed_file_id,
-            chromosome=result.get('loc_region'),
-            start=result.get('loc_start'),
-            end=result.get('loc_end'),
-            gene=result.get('gene'),
-            entrez_id=result.get('entrez_id'),
-            accession=result.get('accession'),
-            exon_id=result.get('exon_id'),
-            exon_number=result.get('exon_number'),
-            transcript_biotype=result.get('transcript_biotype'),
-            mane_transcript=result.get('mane_transcript'),
-            mane_transcript_type=result.get('mane_transcript_type'),
-            warning=result.get('warning', '')
+            chromosome=result['loc_region'],
+            start=int(result['loc_start']) - padding_5,
+            end=int(result['loc_end']) + padding_3,
+            entrez_id=result['entrez_id'],
+            gene=result['gene'],
+            accession=result['accession'],
+            exon_id=result['exon_id'],
+            exon_number=result['exon_number'],
+            transcript_biotype=result['transcript_biotype'],
+            mane_transcript=result['mane_transcript'],
+            mane_transcript_type=result['mane_transcript_type'],
+            warning=json.dumps(result.get('warning')) if result.get('warning') else None
         )
-        db.session.add(new_entry)
+        entries.append(entry)
+    return entries
