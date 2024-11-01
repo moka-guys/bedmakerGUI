@@ -62,6 +62,11 @@ def bed_file_details(file_id):
     bed_file = BedFile.query.options(db.joinedload(BedFile.entries)).get_or_404(file_id)
     published_files = BedFile.query.filter_by(status='published').all()
     
+    # Parse the warnings for each entry
+    for entry in bed_file.entries:
+        if entry.warning:
+            entry.warning = json.loads(entry.warning)
+    
     # Find the previous version of the file
     previous_version = None
     if bed_file.status == 'pending':
@@ -86,6 +91,13 @@ def authorise_bed_file(file_id):
     
     if bed_file.status == 'published':
         return jsonify({'success': False, 'error': 'This file is already published.'}), 400
+
+    # Add warning acknowledgment check
+    if bed_file.warning and not request.json.get('warningsAcknowledged'):
+        return jsonify({
+            'success': False, 
+            'error': 'You must acknowledge the warnings before authorising this file.'
+        }), 400
 
     try:
         data = request.json
@@ -138,7 +150,8 @@ def authorise_bed_file(file_id):
                     exon_number=entry.exon_number,
                     transcript_biotype=entry.transcript_biotype,
                     mane_transcript=entry.mane_transcript,
-                    mane_transcript_type=entry.mane_transcript_type
+                    mane_transcript_type=entry.mane_transcript_type,
+                    warning=entry.warning
                 )
                 db.session.add(new_entry)
 
@@ -158,19 +171,8 @@ def authorise_bed_file(file_id):
 def reload_bed_results(file_id):
     bed_file = BedFile.query.get_or_404(file_id)
     
-    # Print detailed information about the bed_file
-    print(f"BedFile ID: {bed_file.id}")
-    print(f"Filename: {bed_file.filename}")
-    print(f"Status: {bed_file.status}")
-    print(f"Assembly: {bed_file.assembly}")
-    print(f"Submitter ID: {bed_file.submitter_id}")
-    print(f"Authorizer ID: {bed_file.authorizer_id}")
-    print(f"Created At: {bed_file.created_at}")
-    print(f"Updated At: {bed_file.updated_at}")
-    print(f"Number of entries: {len(bed_file.entries)}")
-    
-    # Convert BedFile entries to the format expected by the BED generator
-    results = [
+    # Store the results in the session
+    session['results'] = [
         {
             'loc_region': entry.chromosome,
             'loc_start': entry.start,
@@ -186,10 +188,13 @@ def reload_bed_results(file_id):
         }
         for entry in bed_file.entries
     ]
-    
-    # Store the results in the session
-    session['results'] = results
     session['assembly'] = bed_file.assembly
+    
+    # Add warnings to session if they exist
+    if bed_file.warning:
+        session['warnings'] = json.loads(bed_file.warning)
+    else:
+        session.pop('warnings', None)  # Remove warnings if they don't exist
     
     return jsonify({
         'success': True,
@@ -259,5 +264,6 @@ def file_details(file_id):
     return jsonify({
         'created_at': bed_file.created_at.isoformat(),
         'updated_at': bed_file.updated_at.isoformat(),
-        'initial_query': initial_query
+        'initial_query': initial_query,
+        'warning': json.loads(bed_file.warning) if bed_file.warning else None
     })

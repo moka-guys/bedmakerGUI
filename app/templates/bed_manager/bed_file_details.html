@@ -1,4 +1,6 @@
 <h5>{{ bed_file.filename }}</h5>
+
+
 <div class="table-responsive">
     <table class="table table-bordered table-striped">
         <thead>
@@ -14,6 +16,7 @@
                 <th>Transcript Biotype</th>
                 <th>MANE Transcript</th>
                 <th>MANE Transcript Type</th>
+                <th>Info</th>
             </tr>
         </thead>
         <tbody>
@@ -30,11 +33,31 @@
                     <td>{{ entry.transcript_biotype }}</td>
                     <td>{{ entry.mane_transcript }}</td>
                     <td>{{ entry.mane_transcript_type }}</td>
+                    <td>
+                        {% if entry.warning %}
+                            <span class="text-warning">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                {{ entry.warning.message }}
+                            </span>
+                        {% endif %}
+                    </td>
                 </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+
+<!-- Move warning acknowledgment to bottom of table -->
+{% if bed_file.warning %}
+    <div class="alert alert-warning mt-3" id="reviewWarningSection">
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="warningAcknowledged">
+            <label class="form-check-label" for="warningAcknowledged">
+                I have reviewed all warnings and confirm this file is ready for authorisation
+            </label>
+        </div>
+    </div>
+{% endif %}
 
 <div class="mt-3">
     <h5>File Action:</h5>
