@@ -62,7 +62,18 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                window.location.href = '/bed_generator/results';
+                // Store no_data_identifiers in session
+                fetch('/bed_generator/store_no_data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        no_data_identifiers: data.no_data_identifiers || []
+                    })
+                }).then(() => {
+                    window.location.href = '/bed_generator/results';
+                });
             } else {
                 alert('Error: ' + data.error);
             }

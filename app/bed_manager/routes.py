@@ -27,18 +27,6 @@ def index():
     bed_files = BedFile.query.all()
     return render_template('bed_manager/index.html', bed_files=bed_files)
 
-@bed_manager_bp.route('/submit', methods=['POST'])
-@login_required
-def submit_bed_file():
-    # Logic for submitting a new BED file
-    pass
-
-@bed_manager_bp.route('/review/<int:file_id>', methods=['GET', 'POST'])
-@login_required
-def review_bed_file(file_id):
-    # Logic for reviewing a BED file
-    pass
-
 @bed_manager_bp.route('/remove/<int:file_id>', methods=['POST'])
 @login_required
 def remove_bed_file(file_id):
