@@ -28,9 +28,9 @@
         {% endif %}
 
         <!-- New Alert Section for Identifiers with No Data -->
-        {% if session['no_data_identifiers'] %}
+        {% if no_data_identifiers %}
         <div class="alert alert-warning" role="alert">
-            <strong>Alert:</strong> No data found for the following identifiers: {{ session['no_data_identifiers']|join(', ') }}
+            <strong>Alert:</strong> No data found for the following identifiers: {{ no_data_identifiers|join(', ') }}
         </div>
         {% endif %}
 

@@ -73,7 +73,7 @@ def store_results_in_session(results: List[Dict[str, Any]], no_data_identifiers:
     session['assembly'] = assembly
     session['initial_query'] = initial_query
 
-def process_bulk_data(data: Dict[str, Any]) -> List[Dict[str, Any]]:
+def process_bulk_data(data: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], List[str]]:
     """
     Processes bulk genetic data from a dictionary input.
 
@@ -81,14 +81,18 @@ def process_bulk_data(data: Dict[str, Any]) -> List[Dict[str, Any]]:
         data: A dictionary containing identifiers and coordinates to process.
 
     Returns:
-        A list of processed genetic data entries.
+        A tuple containing:
+        - results: A list of processed genetic data entries.
+        - no_data_identifiers: A list of identifiers for which no data was found.
 
     Raises:
         ValueError: If any coordinate is invalid.
     """
     results = []
+    no_data_identifiers = []
+    
     if data.get('identifiers'):
-        processed_results = process_identifiers(
+        processed_results, no_data = process_identifiers(
             data['identifiers'],
             data.get('assembly', 'GRCh38'),
             data.get('include5UTR', False),
@@ -100,6 +104,7 @@ def process_bulk_data(data: Dict[str, Any]) -> List[Dict[str, Any]]:
                 results.extend(result)
             else:
                 results.append(result)
+        no_data_identifiers.extend(no_data)
     
     if data.get('coordinates'):
         coordinate_list = [coord.strip() for coord in re.split(r'[,\n]', data['coordinates']) if coord.strip()]
@@ -115,7 +120,7 @@ def process_bulk_data(data: Dict[str, Any]) -> List[Dict[str, Any]]:
             else:
                 results.append(coord)
     
-    return results
+    return results, no_data_identifiers
 
 def get_mane_plus_clinical_identifiers(results: List[Dict[str, Any]]) -> Set[str]:
     """

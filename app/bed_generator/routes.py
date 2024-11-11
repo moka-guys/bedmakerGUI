@@ -56,16 +56,13 @@ def index():
 def bulk_process():
     """
     Processes bulk genetic data submitted via a POST request.
-    
-    Expects JSON data with identifiers and coordinates. Stores results in the session.
-    Returns a JSON response indicating success or failure.
     """
     data = request.get_json()
     try:
-        results = process_bulk_data(data)
+        results, no_data_identifiers = process_bulk_data(data)
         # Only add original locations if they don't already exist
         for result in results:
-            if isinstance(result, dict):  # Ensure result is a dictionary
+            if isinstance(result, dict):
                 if 'original_loc_start' not in result:
                     result['original_loc_start'] = result.get('loc_start')
                 if 'original_loc_end' not in result:
@@ -74,7 +71,11 @@ def bulk_process():
         session['results'] = results
         session['assembly'] = data.get('assembly', 'GRCh38')
         session['initial_query'] = data.get('initial_query', {})
-        return jsonify({'success': True, 'message': 'Data processed successfully'})
+        return jsonify({
+            'success': True, 
+            'message': 'Data processed successfully',
+            'no_data_identifiers': no_data_identifiers
+        })
     
     except ValueError as e:
         return jsonify({'success': False, 'error': str(e)}), 400
@@ -92,12 +93,15 @@ def results():
     results = session.get('results', [])
     assembly = session.get('assembly', 'GRCh38')
     initial_query = session.get('initial_query', {})
+    no_data_identifiers = session.get('no_data_identifiers', [])
     
     print("Results:", results)
     print("assembly:", assembly)
+    print("No data identifiers:", no_data_identifiers)
     
     session['results'] = []
     session['initial_query'] = {}
+    session['no_data_identifiers'] = []
     
     mane_plus_clinical_identifiers = get_mane_plus_clinical_identifiers(results)
     has_mane_plus_clinical = bool(mane_plus_clinical_identifiers)
@@ -107,8 +111,16 @@ def results():
         assembly=assembly,
         has_mane_plus_clinical=has_mane_plus_clinical,
         mane_plus_clinical_identifiers=list(mane_plus_clinical_identifiers),
-        initial_query=json.dumps(initial_query)  # JSON encode the initial_query
+        initial_query=json.dumps(initial_query),
+        no_data_identifiers=no_data_identifiers
     )
+
+@bed_generator_bp.route('/store_no_data', methods=['POST'])
+def store_no_data():
+    """Store no_data_identifiers in session."""
+    data = request.get_json()
+    session['no_data_identifiers'] = data.get('no_data_identifiers', [])
+    return jsonify({'success': True})
 
 @bed_generator_bp.route('/adjust_padding', methods=['POST'])
 def adjust_padding():
