@@ -305,18 +305,24 @@ function showSubmitModal() {
 function getInitialQueryAndPadding() {
     const padding5 = parseInt(document.getElementById('paddingInput5').value) || 0;
     const padding3 = parseInt(document.getElementById('paddingInput3').value) || 0;
+    const useSeparateSnpPadding = document.getElementById('separateSnpPadding').checked;
+    const snpPadding5 = useSeparateSnpPadding ? (parseInt(document.getElementById('snpPadding5').value) || 0) : padding5;
+    const snpPadding3 = useSeparateSnpPadding ? (parseInt(document.getElementById('snpPadding3').value) || 0) : padding3;
 
-    // Use the globally defined initialQuery and add padding to it
     let updatedInitialQuery = { ...initialQuery };
     updatedInitialQuery.padding_5 = padding5;
     updatedInitialQuery.padding_3 = padding3;
-
-    console.log("Updated Initial Query in getInitialQueryAndPadding:", updatedInitialQuery);
+    updatedInitialQuery.use_separate_snp_padding = useSeparateSnpPadding;
+    updatedInitialQuery.snp_padding_5 = snpPadding5;
+    updatedInitialQuery.snp_padding_3 = snpPadding3;
 
     return {
         initialQuery: updatedInitialQuery,
         padding_5: padding5,
-        padding_3: padding3
+        padding_3: padding3,
+        snp_padding_5: snpPadding5,
+        snp_padding_3: snpPadding3,
+        use_separate_snp_padding: useSeparateSnpPadding
     };
 }
 

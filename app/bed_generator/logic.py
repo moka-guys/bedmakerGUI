@@ -34,6 +34,7 @@ def process_form_data(form: FlaskForm) -> Tuple[List[Dict[str, Any]], List[str],
     """
     results = []
     no_data_identifiers = []
+    
     initial_query = {
         'identifiers': form.identifiers.data.split() if form.identifiers.data else [],
         'coordinates': form.coordinates.data.split('\n') if form.coordinates.data else [],
