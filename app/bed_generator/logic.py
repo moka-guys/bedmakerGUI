@@ -121,6 +121,8 @@ def process_bulk_data(data: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], List[
             else:
                 results.append(coord)
     
+    # Sort results before returning
+    results = sort_results(results)
     return results, no_data_identifiers
 
 def get_mane_plus_clinical_identifiers(results: List[Dict[str, Any]]) -> Set[str]:
@@ -179,3 +181,26 @@ def generate_bed_file(bed_type: str, results: List[Dict[str, Any]], filename_pre
         filename = f'{filename_prefix}_{bed_type}.bed' if filename_prefix else f'{bed_type}.bed'
     
     return bed_content, filename
+
+def sort_results(results):
+    """
+    Sorts results by chromosome (numerically and alphabetically) and start position.
+    """
+    def chromosome_key(chrom):
+        # Remove 'chr' prefix if present
+        chrom = str(chrom).replace('chr', '').upper()
+        # Convert to integer if possible, otherwise keep as string
+        try:
+            return (0, int(chrom)) if chrom.isdigit() else (1, chrom)
+        except ValueError:
+            return (1, chrom)
+
+    def sort_key(result):
+        # Ensure start position is an integer
+        try:
+            start = int(result['loc_start'])
+        except (ValueError, TypeError):
+            start = 0
+        return (chromosome_key(result['loc_region']), start)
+
+    return sorted(results, key=sort_key)
