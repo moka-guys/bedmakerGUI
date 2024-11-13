@@ -315,35 +315,52 @@ def download_bed(bed_type):
         results = data['results']
         filename_prefix = data.get('filename_prefix', '')
         add_chr_prefix = data.get('add_chr_prefix', False)
-        padding_5 = data.get('padding_5', 0)
-        padding_3 = data.get('padding_3', 0)
-        use_separate_snp_padding = data.get('use_separate_snp_padding', False)
-        snp_padding_5 = data.get('snp_padding_5', padding_5)
-        snp_padding_3 = data.get('snp_padding_3', padding_3)
-        settings = load_settings()
         
-        # Apply padding based on whether it's a variant/SNP and strand direction
-        for result in results:
-            strand = result.get('loc_strand', 1)  # Default to forward strand if not specified
-            is_variant = (
-                int(result.get('original_loc_start', 0)) == int(result.get('original_loc_end', 0)) or
-                bool(re.match(r'^RS\d+$', result.get('rsid', ''), re.IGNORECASE))
-            )
+        # Get settings from database for non-raw bed types
+        settings = Settings.get_settings()
+        settings_dict = settings.to_dict()
+        
+        # Only apply padding for raw BED files
+        if bed_type == 'raw':
+            # Use the padding from the request for raw BED files
+            padding_5 = data.get('padding_5', 0)
+            padding_3 = data.get('padding_3', 0)
+            use_separate_snp_padding = data.get('use_separate_snp_padding', False)
+            snp_padding_5 = data.get('snp_padding_5', padding_5)
+            snp_padding_3 = data.get('snp_padding_3', padding_3)
             
-            # Choose appropriate padding based on whether it's a variant
-            p5 = snp_padding_5 if (is_variant and use_separate_snp_padding) else padding_5
-            p3 = snp_padding_3 if (is_variant and use_separate_snp_padding) else padding_3
-            
-            if strand > 0:  # Forward strand
-                result['loc_start'] = int(result.get('original_loc_start', result['loc_start'])) - p5
-                result['loc_end'] = int(result.get('original_loc_end', result['loc_end'])) + p3
-            else:  # Reverse strand
-                result['loc_start'] = int(result.get('original_loc_start', result['loc_start'])) - p3
-                result['loc_end'] = int(result.get('original_loc_end', result['loc_end'])) + p5
+            # Apply padding based on whether it's a variant/SNP
+            for result in results:
+                strand = result.get('loc_strand', 1)
+                is_variant = (
+                    int(result.get('original_loc_start', 0)) == int(result.get('original_loc_end', 0)) or
+                    bool(re.match(r'^RS\d+$', result.get('rsid', ''), re.IGNORECASE))
+                )
+                
+                p5 = snp_padding_5 if (is_variant and use_separate_snp_padding) else padding_5
+                p3 = snp_padding_3 if (is_variant and use_separate_snp_padding) else padding_3
+                
+                if strand > 0:
+                    result['loc_start'] = int(result.get('original_loc_start', result['loc_start'])) - p5
+                    result['loc_end'] = int(result.get('original_loc_end', result['loc_end'])) + p3
+                else:
+                    result['loc_start'] = int(result.get('original_loc_start', result['loc_start'])) - p3
+                    result['loc_end'] = int(result.get('original_loc_end', result['loc_end'])) + p5
+
+        # Generate appropriate filename and content
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"{filename_prefix}_{timestamp}_{bed_type}.bed" if filename_prefix else f"{timestamp}_{bed_type}.bed"
         
-        bed_content, filename = generate_bed_file(bed_type, results, filename_prefix, settings, add_chr_prefix)
+        # For non-raw files, use original coordinates to let generate_bed_file handle padding
+        if bed_type != 'raw':
+            for result in results:
+                if 'original_loc_start' in result and 'original_loc_end' in result:
+                    result['loc_start'] = result['original_loc_start']
+                    result['loc_end'] = result['original_loc_end']
         
-        return jsonify({'content': bed_content, 'filename': filename})
+        bed_content = generate_bed_file(bed_type, results, filename_prefix, settings_dict, add_chr_prefix)
+        
+        return jsonify({'content': bed_content[0], 'filename': filename})
     except Exception as e:
         print(f"Error in download_bed: {str(e)}")
         return jsonify({'error': str(e)}), 500
