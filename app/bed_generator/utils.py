@@ -83,7 +83,8 @@ def process_identifiers(identifiers: List[str], assembly: str, include_5utr: boo
                             'most_severe_consequence': data.most_severe_consequence,
                             'allele_string': data.allele_string,
                             'original_loc_start': data.loc_start,
-                            'original_loc_end': data.loc_end
+                            'original_loc_end': data.loc_end,
+                            'rsid': data.rsid
                         }
                         results.append(variant_dict)
                 else:
@@ -113,10 +114,7 @@ def process_tark_data(r: Dict[str, Any], include_5utr: bool, include_3utr: bool)
 
     strand = r.get('loc_strand', 1)  # Default to positive strand if not specified
     
-    # Store original coordinates
-    r['original_loc_start'] = r['loc_start']
-    r['original_loc_end'] = r['loc_end']
-    
+    # First apply UTR adjustments
     if strand == 1:  # Positive strand
         if not include_5utr and r.get('five_prime_utr', {}).get('end'):
             r['loc_start'] = max(r['loc_start'], r['five_prime_utr']['end'])
@@ -128,8 +126,11 @@ def process_tark_data(r: Dict[str, Any], include_5utr: bool, include_3utr: bool)
         if not include_3utr and r.get('three_prime_utr', {}).get('start'):
             r['loc_start'] = max(r['loc_start'], r['three_prime_utr']['start'])
     
-    # Validate final coordinates
-    return r if r['loc_start'] < r['loc_end'] else None
+    # Store the UTR-adjusted coordinates as original coordinates
+    r['original_loc_start'] = r['loc_start']
+    r['original_loc_end'] = r['loc_end']
+    
+    return r
 
 def process_coordinates(coordinates: List[str], assembly: str = 'GRCh38') -> List[Dict[str, Any]]:
     """
