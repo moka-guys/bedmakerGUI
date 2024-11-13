@@ -31,6 +31,7 @@ import traceback
 import json
 from datetime import datetime 
 from app import db
+import re
 
 
 @bed_generator_bp.route('/', methods=['GET', 'POST'])
@@ -137,11 +138,15 @@ def adjust_padding():
 
     for result in results:
         strand = result.get('loc_strand', 1)  # Default to forward strand if not specified
-        is_snp = result.get('loc_start') == result.get('loc_end')
+        # Check both original coordinates and rsID presence
+        is_variant = (
+            int(result.get('original_loc_start', 0)) == int(result.get('original_loc_end', 0)) or
+            bool(re.match(r'^RS\d+$', result.get('rsid', ''), re.IGNORECASE))
+        )
         
-        # Choose appropriate padding based on whether it's a SNP
-        p5 = snp_padding_5 if (is_snp and use_separate_snp_padding) else padding_5
-        p3 = snp_padding_3 if (is_snp and use_separate_snp_padding) else padding_3
+        # Choose appropriate padding based on whether it's a variant
+        p5 = snp_padding_5 if (is_variant and use_separate_snp_padding) else padding_5
+        p3 = snp_padding_3 if (is_variant and use_separate_snp_padding) else padding_3
 
         if strand > 0:  # Forward strand
             result['loc_start'] = int(result['original_loc_start']) - p5
@@ -284,10 +289,8 @@ def submit_for_review():
         db.session.add(new_file)
         db.session.flush()
 
-        # Create and save entries
-        padding_5 = initial_query.get('padding_5', 0)
-        padding_3 = initial_query.get('padding_3', 0)
-        BedEntry.create_entries(new_file.id, results, padding_5, padding_3)
+        # Create and save entries without applying padding again
+        BedEntry.create_entries(new_file.id, results)
         db.session.commit()
 
         # Generate BED files
@@ -307,19 +310,29 @@ def submit_for_review():
 
 @bed_generator_bp.route('/download_bed/<bed_type>', methods=['POST'])
 def download_bed(bed_type):
-    """
-    Generates and returns a specific type of BED file.
-    
-    Args:
-        bed_type: The type of BED file to generate (e.g., 'raw', 'data', 'sambamba').
-    
-    Expects JSON data with results and an optional filename prefix. Returns the BED file content and filename.
-    """
     try:
-        results = request.json['results']
-        filename_prefix = request.json.get('filename_prefix', '')
-        add_chr_prefix = request.json.get('add_chr_prefix', False)  # Get the add_chr_prefix flag
+        data = request.json
+        results = data['results']
+        filename_prefix = data.get('filename_prefix', '')
+        add_chr_prefix = data.get('add_chr_prefix', False)
+        padding_5 = data.get('padding_5', 0)
+        padding_3 = data.get('padding_3', 0)
+        use_separate_snp_padding = data.get('use_separate_snp_padding', False)
+        snp_padding_5 = data.get('snp_padding_5', padding_5)
+        snp_padding_3 = data.get('snp_padding_3', padding_3)
         settings = load_settings()
+        
+        # Apply padding based on whether it's a variant/SNP
+        for result in results:
+            is_variant = (
+                int(result.get('original_loc_start', 0)) == int(result.get('original_loc_end', 0)) or
+                bool(re.match(r'^RS\d+$', result.get('rsid', ''), re.IGNORECASE))
+            )
+            p5 = snp_padding_5 if (is_variant and use_separate_snp_padding) else padding_5
+            p3 = snp_padding_3 if (is_variant and use_separate_snp_padding) else padding_3
+            
+            result['loc_start'] = int(result.get('original_loc_start', result['loc_start'])) - p5
+            result['loc_end'] = int(result.get('original_loc_end', result['loc_end'])) + p3
         
         bed_content, filename = generate_bed_file(bed_type, results, filename_prefix, settings, add_chr_prefix)
         
