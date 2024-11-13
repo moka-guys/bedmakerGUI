@@ -20,7 +20,7 @@ class BedGenerator:
     BED_FORMATS = {
         'data': {
             'fields': [
-                lambda r: r['entrez_id'],
+                lambda r: str(r['entrez_id']),
                 lambda r: f"{r['gene']};{r['accession']}"
             ]
         },
@@ -30,7 +30,7 @@ class BedGenerator:
                 lambda r: "0",
                 lambda r: '+' if r.get('loc_strand', 1) > 0 else '-',
                 lambda r: f"{r['gene']};{r['accession']}",
-                lambda r: r['entrez_id']
+                lambda r: str(r['entrez_id'])
             ]
         },
         'exome_depth': {
