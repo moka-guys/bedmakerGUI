@@ -217,32 +217,43 @@ function updateFilenamePrefixForAll() {
 function downloadBED(bedType) {
     const results = JSON.parse(document.getElementById('bedContent').value);
     const filenamePrefix = document.getElementById('bedFileNamePrefix').value;
-    const padding5 = parseInt(document.getElementById('paddingInput5').value) || 0;
-    const padding3 = parseInt(document.getElementById('paddingInput3').value) || 0;
-    const useSeparateSnpPadding = document.getElementById('separateSnpPadding').checked;
-    const snpPadding5 = useSeparateSnpPadding ? (parseInt(document.getElementById('snpPadding5').value) || 0) : padding5;
-    const snpPadding3 = useSeparateSnpPadding ? (parseInt(document.getElementById('snpPadding3').value) || 0) : padding3;
+    
+    // Only include padding settings for raw BED files
+    let requestData = {
+        results: results,
+        filename_prefix: filenamePrefix,
+        add_chr_prefix: addChrPrefix
+    };
+
+    // Only include padding for raw BED files
+    if (bedType === 'raw') {
+        const padding5 = parseInt(document.getElementById('paddingInput5').value) || 0;
+        const padding3 = parseInt(document.getElementById('paddingInput3').value) || 0;
+        const useSeparateSnpPadding = document.getElementById('separateSnpPadding').checked;
+        const snpPadding5 = useSeparateSnpPadding ? (parseInt(document.getElementById('snpPadding5').value) || 0) : padding5;
+        const snpPadding3 = useSeparateSnpPadding ? (parseInt(document.getElementById('snpPadding3').value) || 0) : padding3;
+        
+        requestData = {
+            ...requestData,
+            padding_5: padding5,
+            padding_3: padding3,
+            use_separate_snp_padding: useSeparateSnpPadding,
+            snp_padding_5: snpPadding5,
+            snp_padding_3: snpPadding3
+        };
+    }
 
     fetch(`/bed_generator/download_bed/${bedType}`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
-            results: results, 
-            filename_prefix: filenamePrefix,
-            add_chr_prefix: addChrPrefix,
-            padding_5: padding5,
-            padding_3: padding3,
-            use_separate_snp_padding: useSeparateSnpPadding,
-            snp_padding_5: snpPadding5,
-            snp_padding_3: snpPadding3
-        })
+        body: JSON.stringify(requestData)
     })
     .then(response => response.json())
     .then(data => {
         if (data.error) {
-            alert('Error: ' + data.error);
+            alert(data.error);
         } else {
             const blob = new Blob([data.content], { type: 'text/plain' });
             const url = window.URL.createObjectURL(blob);

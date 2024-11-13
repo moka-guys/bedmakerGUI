@@ -164,9 +164,16 @@ def generate_bed_file(bed_type: str, results: List[Dict[str, Any]], filename_pre
         bed_content = BedGenerator.create_raw_bed(results, add_chr_prefix)
         filename = f'{filename_prefix}_raw.bed' if filename_prefix else 'raw.bed'
     else:
-        # Get regular and SNP padding settings
-        padding = settings.get(f'{bed_type.lower()}_padding', 0)
-        snp_padding = settings.get(f'{bed_type.lower()}_snp_padding', padding)
+        # Map bed_type to settings key
+        padding_map = {
+            'data': settings.get('data_padding', 0),
+            'sambamba': settings.get('sambamba_padding', 0),
+            'exome_depth': settings.get('exomeDepth_padding', 0),
+            'cnv': settings.get('cnv_padding', 0)
+        }
+        
+        # Get the appropriate padding for this bed type
+        padding = padding_map.get(bed_type.lower(), 0)
         
         # Create a copy of results with appropriate padding
         padded_results = []
@@ -174,10 +181,10 @@ def generate_bed_file(bed_type: str, results: List[Dict[str, Any]], filename_pre
             result_copy = result.copy()
             # Check if the result came from an rsID
             is_variant = bool(re.match(r'^RS\d+$', result.get('rsid', ''), re.IGNORECASE))
-            result_copy['_padding'] = snp_padding if is_variant else padding
+            result_copy['_padding'] = padding  # Use the same padding for variants and non-variants
             padded_results.append(result_copy)
             
-        bed_content = BedGenerator.create_formatted_bed(padded_results, bed_type.lower(), 0, add_chr_prefix)
+        bed_content = BedGenerator.create_formatted_bed(padded_results, bed_type.lower(), padding, add_chr_prefix)
         filename = f'{filename_prefix}_{bed_type}.bed' if filename_prefix else f'{bed_type}.bed'
     
     return bed_content, filename
