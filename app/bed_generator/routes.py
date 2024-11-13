@@ -322,17 +322,24 @@ def download_bed(bed_type):
         snp_padding_3 = data.get('snp_padding_3', padding_3)
         settings = load_settings()
         
-        # Apply padding based on whether it's a variant/SNP
+        # Apply padding based on whether it's a variant/SNP and strand direction
         for result in results:
+            strand = result.get('loc_strand', 1)  # Default to forward strand if not specified
             is_variant = (
                 int(result.get('original_loc_start', 0)) == int(result.get('original_loc_end', 0)) or
                 bool(re.match(r'^RS\d+$', result.get('rsid', ''), re.IGNORECASE))
             )
+            
+            # Choose appropriate padding based on whether it's a variant
             p5 = snp_padding_5 if (is_variant and use_separate_snp_padding) else padding_5
             p3 = snp_padding_3 if (is_variant and use_separate_snp_padding) else padding_3
             
-            result['loc_start'] = int(result.get('original_loc_start', result['loc_start'])) - p5
-            result['loc_end'] = int(result.get('original_loc_end', result['loc_end'])) + p3
+            if strand > 0:  # Forward strand
+                result['loc_start'] = int(result.get('original_loc_start', result['loc_start'])) - p5
+                result['loc_end'] = int(result.get('original_loc_end', result['loc_end'])) + p3
+            else:  # Reverse strand
+                result['loc_start'] = int(result.get('original_loc_start', result['loc_start'])) - p3
+                result['loc_end'] = int(result.get('original_loc_end', result['loc_end'])) + p5
         
         bed_content, filename = generate_bed_file(bed_type, results, filename_prefix, settings, add_chr_prefix)
         
