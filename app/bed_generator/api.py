@@ -518,8 +518,8 @@ def validate_coordinates(coordinates: str) -> Optional[str]:
 
     start, end = int(match.group(3)), int(match.group(4))
 
-    # Ensures the start position is less than the end position.
-    if start >= end:
-        return "Start position must be less than end position."
+    # Ensures the end position is not less than the start position
+    if start > end:
+        return "End position cannot be less than start position."
 
     return None
