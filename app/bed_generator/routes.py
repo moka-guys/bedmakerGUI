@@ -125,27 +125,30 @@ def store_no_data():
 @bed_generator_bp.route('/adjust_padding', methods=['POST'])
 def adjust_padding():
     """
-    Adjusts the padding for results.
-
-    Expects JSON data with 'padding_5', 'padding_3', and 'results'.
-    Recalculates 'loc_start' and 'loc_end' for each result based on the provided padding values.
-
-    Returns:
-        JSON response with the updated results and a success status.
+    Adjusts the padding for results, with separate handling for SNPs.
     """
     data = request.get_json()
     padding_5 = int(data.get('padding_5', 0))
     padding_3 = int(data.get('padding_3', 0))
+    use_separate_snp_padding = data.get('use_separate_snp_padding', False)
+    snp_padding_5 = int(data.get('snp_padding_5', padding_5))
+    snp_padding_3 = int(data.get('snp_padding_3', padding_3))
     results = data.get('results', [])
 
     for result in results:
         strand = result.get('loc_strand', 1)  # Default to forward strand if not specified
+        is_snp = result.get('loc_start') == result.get('loc_end')
+        
+        # Choose appropriate padding based on whether it's a SNP
+        p5 = snp_padding_5 if (is_snp and use_separate_snp_padding) else padding_5
+        p3 = snp_padding_3 if (is_snp and use_separate_snp_padding) else padding_3
+
         if strand > 0:  # Forward strand
-            result['loc_start'] = int(result['original_loc_start']) - padding_5
-            result['loc_end'] = int(result['original_loc_end']) + padding_3
+            result['loc_start'] = int(result['original_loc_start']) - p5
+            result['loc_end'] = int(result['original_loc_end']) + p3
         else:  # Reverse strand
-            result['loc_start'] = int(result['original_loc_start']) - padding_3
-            result['loc_end'] = int(result['original_loc_end']) + padding_5
+            result['loc_start'] = int(result['original_loc_start']) - p3
+            result['loc_end'] = int(result['original_loc_end']) + p5
 
     return jsonify({'success': True, 'results': results})
 
