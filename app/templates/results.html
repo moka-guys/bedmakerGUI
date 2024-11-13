@@ -208,6 +208,20 @@
                             <label for="paddingInput3" class="form-label">3' Padding (bp)</label>
                             <input type="number" class="form-control" id="paddingInput3" value="0">
                         </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="separateSnpPadding">
+                                <label class="form-check-label" for="separateSnpPadding">
+                                    Use separate padding for SNPs
+                                </label>
+                            </div>
+                            <div id="snpPaddingInputs" style="display: none;">
+                                <label for="snpPadding5" class="form-label">SNP 5' Padding (bp)</label>
+                                <input type="number" class="form-control" id="snpPadding5" value="0">
+                                <label for="snpPadding3" class="form-label">SNP 3' Padding (bp)</label>
+                                <input type="number" class="form-control" id="snpPadding3" value="0">
+                            </div>
+                        </div>
                         <button class="btn btn-primary" onclick="applyPadding()">Apply Padding</button>
                     </div>
                 </div>

@@ -26,6 +26,11 @@ document.addEventListener('DOMContentLoaded', function () {
     if (chrPrefixCheckbox) {
         chrPrefixCheckbox.addEventListener('change', toggleChrPrefix);
     }
+
+    document.getElementById('separateSnpPadding').addEventListener('change', function() {
+        const snpPaddingInputs = document.getElementById('snpPaddingInputs');
+        snpPaddingInputs.style.display = this.checked ? 'block' : 'none';
+    });
 });
 
 function loadIGV() {
@@ -91,6 +96,9 @@ function loadIGV() {
 function applyPadding() {
     const padding5 = parseInt(document.getElementById('paddingInput5').value) || 0;
     const padding3 = parseInt(document.getElementById('paddingInput3').value) || 0;
+    const useSeparateSnpPadding = document.getElementById('separateSnpPadding').checked;
+    const snpPadding5 = useSeparateSnpPadding ? (parseInt(document.getElementById('snpPadding5').value) || 0) : padding5;
+    const snpPadding3 = useSeparateSnpPadding ? (parseInt(document.getElementById('snpPadding3').value) || 0) : padding3;
     const results = JSON.parse(document.getElementById('bedContent').value);
 
     fetch('/bed_generator/adjust_padding', {
@@ -101,6 +109,9 @@ function applyPadding() {
         body: JSON.stringify({
             padding_5: padding5,
             padding_3: padding3,
+            snp_padding_5: snpPadding5,
+            snp_padding_3: snpPadding3,
+            use_separate_snp_padding: useSeparateSnpPadding,
             results: results
         }),
     })
