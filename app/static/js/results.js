@@ -2,6 +2,8 @@ let igvBrowser;
 let settings;
 let activeRowIndex = 0;
 let addChrPrefix = false;
+let currentSortColumn = -1;
+let sortDirection = 1; // 1 for ascending, -1 for descending
 
 // Load settings when the page loads
 fetch('/bed_generator/settings')
@@ -677,6 +679,22 @@ function updateTable(results) {
             <td>${result.transcript_biotype}</td>
             <td>${result.mane_transcript}</td>
             <td>${result.mane_transcript_type}</td>
+            <td>
+                ${result.warning ? 
+                    result.warning.message && result.warning.message.includes("best available GRCh38 MANE transcript match") ?
+                        `<span class="badge bg-info text-white">
+                            <i class="fas fa-info-circle"></i> GRCh38 MANE SELECT equivalent
+                        </span>` :
+                        `<span class="badge bg-warning text-dark">
+                            <i class="fas fa-exclamation-triangle"></i> 
+                            ${result.warning.message || result.warning}
+                        </span>`
+                    :
+                    `<span class="badge bg-success text-white">
+                        <i class="fas fa-check"></i> Transcript verified
+                    </span>`
+                }
+            </td>
         `;
         
         tableBody.appendChild(row);
@@ -724,4 +742,72 @@ function updateIGV(results) {
     } else {
         console.warn('IGV browser not initialized');
     }
+}
+
+function sortTable(column) {
+    const table = document.querySelector('.table');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    
+    // Update sort direction
+    if (currentSortColumn === column) {
+        sortDirection *= -1;
+    } else {
+        sortDirection = 1;
+    }
+    currentSortColumn = column;
+
+    // Update sort icons
+    const headers = table.querySelectorAll('th');
+    headers.forEach(header => {
+        header.querySelector('i')?.classList.remove('fa-sort-up', 'fa-sort-down');
+        header.querySelector('i')?.classList.add('fa-sort');
+    });
+    const currentHeader = headers[column].querySelector('i');
+    currentHeader?.classList.remove('fa-sort');
+    currentHeader?.classList.add(sortDirection === 1 ? 'fa-sort-up' : 'fa-sort-down');
+
+    // Sort rows
+    rows.sort((a, b) => {
+        let aValue = a.cells[column].textContent.trim();
+        let bValue = b.cells[column].textContent.trim();
+
+        // Special handling for chromosome sorting
+        if (column === 0) {
+            aValue = normalizeChrValue(aValue);
+            bValue = normalizeChrValue(bValue);
+        }
+        // Special handling for numeric columns
+        else if (column === 1 || column === 2 || column === 7) {
+            aValue = parseInt(aValue) || 0;
+            bValue = parseInt(bValue) || 0;
+        }
+
+        if (aValue < bValue) return -1 * sortDirection;
+        if (aValue > bValue) return 1 * sortDirection;
+        return 0;
+    });
+
+    // Reorder rows in the table
+    rows.forEach(row => tbody.appendChild(row));
+    
+    // Update IGV view for the first row
+    if (rows.length > 0) {
+        setActiveRow(rows[0], 0);
+    }
+}
+
+function normalizeChrValue(chr) {
+    // Remove 'chr' prefix if present
+    chr = chr.replace(/^chr/i, '');
+    
+    // Convert to number if possible
+    const num = parseInt(chr);
+    if (!isNaN(num)) {
+        return num;
+    }
+    
+    // Handle X, Y, M chromosomes
+    const chrMap = { 'X': 23, 'Y': 24, 'M': 25, 'MT': 25 };
+    return chrMap[chr.toUpperCase()] || chr;
 }
