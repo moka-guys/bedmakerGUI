@@ -20,27 +20,27 @@ class BedGenerator:
     BED_FORMATS = {
         'data': {
             'fields': [
-                lambda r: str(r['entrez_id']),
-                lambda r: f"{r['gene']};{r['accession']}"
+                lambda r, _: str(r['entrez_id']),
+                lambda r, _: f"{r['gene']};{r['accession']}"
             ]
         },
         'sambamba': {
             'fields': [
-                lambda r: f"{r['loc_region']}-{r['loc_start']}-{r['loc_end']}", 
-                lambda r: "0",
-                lambda r: '+' if r.get('loc_strand', 1) > 0 else '-',
-                lambda r: f"{r['gene']};{r['accession']}",
-                lambda r: str(r['entrez_id'])
+                lambda r, p: f"{r['loc_region']}-{int(r['loc_start']) - p}-{int(r['loc_end']) + p}", 
+                lambda r, _: "0",
+                lambda r, _: '+' if r.get('loc_strand', 1) > 0 else '-',
+                lambda r, _: f"{r['gene']};{r['accession']}",
+                lambda r, _: str(r['entrez_id'])
             ]
         },
         'exome_depth': {
             'fields': [
-                lambda r: f"{r['gene']}_{r.get('exon_number', '')}"
+                lambda r, _: f"{r['gene']}_{r.get('exon_number', '')}"
             ]
         },
         'cnv': {
             'fields': [
-                lambda r: r['accession']
+                lambda r, _: r['accession']
             ]
         }
     }
@@ -59,15 +59,15 @@ class BedGenerator:
         
         # Apply padding based on strand direction
         if strand > 0:  # Forward strand
-            loc_start = r['loc_start'] - padding
-            loc_end = r['loc_end'] + padding
+            loc_start = int(r['loc_start']) - padding
+            loc_end = int(r['loc_end']) + padding
         else:  # Reverse strand
-            loc_start = r['loc_start'] - padding
-            loc_end = r['loc_end'] + padding
+            loc_start = int(r['loc_start']) - padding
+            loc_end = int(r['loc_end']) + padding
         
         # Get additional fields based on format
         format_config = BedGenerator.BED_FORMATS[format_type]
-        additional_fields = [field_func(r) for field_func in format_config['fields']]
+        additional_fields = [field_func(r, padding) for field_func in format_config['fields']]
         
         return '\t'.join([loc_region, str(loc_start), str(loc_end)] + additional_fields)
 

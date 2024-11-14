@@ -106,6 +106,7 @@ def results():
     
     mane_plus_clinical_identifiers = get_mane_plus_clinical_identifiers(results)
     has_mane_plus_clinical = bool(mane_plus_clinical_identifiers)
+    settings = Settings.get_settings()
     return render_template(
         'results.html',
         results=results,
@@ -113,7 +114,8 @@ def results():
         has_mane_plus_clinical=has_mane_plus_clinical,
         mane_plus_clinical_identifiers=list(mane_plus_clinical_identifiers),
         initial_query=json.dumps(initial_query),
-        no_data_identifiers=no_data_identifiers
+        no_data_identifiers=no_data_identifiers,
+        settings=settings.to_dict()
     )
 
 @bed_generator_bp.route('/store_no_data', methods=['POST'])
@@ -316,20 +318,19 @@ def download_bed(bed_type):
         filename_prefix = data.get('filename_prefix', '')
         add_chr_prefix = data.get('add_chr_prefix', False)
         
-        # Get settings from database for non-raw bed types
+        # Get settings from database for custom bed types
         settings = Settings.get_settings()
         settings_dict = settings.to_dict()
         
-        # Only apply padding for raw BED files
+        # Handle raw BED files separately
         if bed_type == 'raw':
-            # Use the padding from the request for raw BED files
             padding_5 = data.get('padding_5', 0)
             padding_3 = data.get('padding_3', 0)
             use_separate_snp_padding = data.get('use_separate_snp_padding', False)
             snp_padding_5 = data.get('snp_padding_5', padding_5)
             snp_padding_3 = data.get('snp_padding_3', padding_3)
             
-            # Apply padding based on whether it's a variant/SNP
+            # Apply custom padding for raw BED files
             for result in results:
                 strand = result.get('loc_strand', 1)
                 is_variant = (
@@ -346,17 +347,15 @@ def download_bed(bed_type):
                 else:
                     result['loc_start'] = int(result.get('original_loc_start', result['loc_start'])) - p3
                     result['loc_end'] = int(result.get('original_loc_end', result['loc_end'])) + p5
-
-        # Generate appropriate filename and content
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"{filename_prefix}_{timestamp}_{bed_type}.bed" if filename_prefix else f"{timestamp}_{bed_type}.bed"
-        
-        # For non-raw files, use original coordinates to let generate_bed_file handle padding
-        if bed_type != 'raw':
+        else:
+            # For custom BED types, use original coordinates
             for result in results:
                 if 'original_loc_start' in result and 'original_loc_end' in result:
                     result['loc_start'] = result['original_loc_start']
                     result['loc_end'] = result['original_loc_end']
+        
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"{filename_prefix}_{timestamp}_{bed_type}.bed" if filename_prefix else f"{timestamp}_{bed_type}.bed"
         
         bed_content = generate_bed_file(bed_type, results, filename_prefix, settings_dict, add_chr_prefix)
         

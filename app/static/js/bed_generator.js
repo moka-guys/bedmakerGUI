@@ -100,7 +100,7 @@ function loadPanelsFromJSON() {
     return fetch('/bed_generator/panels')
         .then(response => response.json())
         .then(data => {
-            console.log('Loaded panel data:', data);  // Add this for debugging
+            console.log('Loaded panel data:', data); 
             updatePanelDropdown(data);
         })
         .catch(error => console.error('Error loading panels from JSON:', error));
