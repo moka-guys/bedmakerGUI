@@ -33,6 +33,12 @@ document.addEventListener('DOMContentLoaded', function () {
         const snpPaddingInputs = document.getElementById('snpPaddingInputs');
         snpPaddingInputs.style.display = this.checked ? 'block' : 'none';
     });
+
+    // Initialize all tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
 });
 
 function loadIGV() {
@@ -214,46 +220,50 @@ function updateFilenamePrefixForAll() {
     }
 }
 
-function downloadBED(bedType) {
+function downloadRawBed() {
+    const results = JSON.parse(document.getElementById('bedContent').value);
+    const filenamePrefix = document.getElementById('bedFileNamePrefix').value;
+    const padding5 = parseInt(document.getElementById('paddingInput5').value) || 0;
+    const padding3 = parseInt(document.getElementById('paddingInput3').value) || 0;
+    const useSeparateSnpPadding = document.getElementById('separateSnpPadding').checked;
+    const snpPadding5 = useSeparateSnpPadding ? (parseInt(document.getElementById('snpPadding5').value) || 0) : padding5;
+    const snpPadding3 = useSeparateSnpPadding ? (parseInt(document.getElementById('snpPadding3').value) || 0) : padding3;
+
+    downloadBedFile('raw', {
+        results,
+        filename_prefix: filenamePrefix,
+        add_chr_prefix: addChrPrefix,
+        padding_5: padding5,
+        padding_3: padding3,
+        use_separate_snp_padding: useSeparateSnpPadding,
+        snp_padding_5: snpPadding5,
+        snp_padding_3: snpPadding3
+    });
+}
+
+function downloadCustomBed(bedType) {
     const results = JSON.parse(document.getElementById('bedContent').value);
     const filenamePrefix = document.getElementById('bedFileNamePrefix').value;
     
-    // Only include padding settings for raw BED files
-    let requestData = {
-        results: results,
+    downloadBedFile(bedType, {
+        results,
         filename_prefix: filenamePrefix,
         add_chr_prefix: addChrPrefix
-    };
+    });
+}
 
-    // Only include padding for raw BED files
-    if (bedType === 'raw') {
-        const padding5 = parseInt(document.getElementById('paddingInput5').value) || 0;
-        const padding3 = parseInt(document.getElementById('paddingInput3').value) || 0;
-        const useSeparateSnpPadding = document.getElementById('separateSnpPadding').checked;
-        const snpPadding5 = useSeparateSnpPadding ? (parseInt(document.getElementById('snpPadding5').value) || 0) : padding5;
-        const snpPadding3 = useSeparateSnpPadding ? (parseInt(document.getElementById('snpPadding3').value) || 0) : padding3;
-        
-        requestData = {
-            ...requestData,
-            padding_5: padding5,
-            padding_3: padding3,
-            use_separate_snp_padding: useSeparateSnpPadding,
-            snp_padding_5: snpPadding5,
-            snp_padding_3: snpPadding3
-        };
-    }
-
+function downloadBedFile(bedType, data) {
     fetch(`/bed_generator/download_bed/${bedType}`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify(requestData)
+        body: JSON.stringify(data)
     })
     .then(response => response.json())
     .then(data => {
         if (data.error) {
-            alert(data.error);
+            alert('Error: ' + data.error);
         } else {
             const blob = new Blob([data.content], { type: 'text/plain' });
             const url = window.URL.createObjectURL(blob);
@@ -753,72 +763,4 @@ function updateIGV(results) {
     } else {
         console.warn('IGV browser not initialized');
     }
-}
-
-function sortTable(column) {
-    const table = document.querySelector('.table');
-    const tbody = table.querySelector('tbody');
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    
-    // Update sort direction
-    if (currentSortColumn === column) {
-        sortDirection *= -1;
-    } else {
-        sortDirection = 1;
-    }
-    currentSortColumn = column;
-
-    // Update sort icons
-    const headers = table.querySelectorAll('th');
-    headers.forEach(header => {
-        header.querySelector('i')?.classList.remove('fa-sort-up', 'fa-sort-down');
-        header.querySelector('i')?.classList.add('fa-sort');
-    });
-    const currentHeader = headers[column].querySelector('i');
-    currentHeader?.classList.remove('fa-sort');
-    currentHeader?.classList.add(sortDirection === 1 ? 'fa-sort-up' : 'fa-sort-down');
-
-    // Sort rows
-    rows.sort((a, b) => {
-        let aValue = a.cells[column].textContent.trim();
-        let bValue = b.cells[column].textContent.trim();
-
-        // Special handling for chromosome sorting
-        if (column === 0) {
-            aValue = normalizeChrValue(aValue);
-            bValue = normalizeChrValue(bValue);
-        }
-        // Special handling for numeric columns
-        else if (column === 1 || column === 2 || column === 7) {
-            aValue = parseInt(aValue) || 0;
-            bValue = parseInt(bValue) || 0;
-        }
-
-        if (aValue < bValue) return -1 * sortDirection;
-        if (aValue > bValue) return 1 * sortDirection;
-        return 0;
-    });
-
-    // Reorder rows in the table
-    rows.forEach(row => tbody.appendChild(row));
-    
-    // Update IGV view for the first row
-    if (rows.length > 0) {
-        setActiveRow(rows[0], 0);
-    }
-}
-
-function normalizeChrValue(chr) {
-    // Remove 'chr' prefix if present
-    chr = chr.replace(/^chr/i, '');
-    
-    // Convert to number if possible
-    const num = parseInt(chr);
-    if (!isNaN(num)) {
-        return num;
-    }
-    
-    // Handle X, Y, M chromosomes
-    const chrMap = { 'X': 23, 'Y': 24, 'M': 25, 'MT': 25 };
-    return chrMap[chr.toUpperCase()] || chr;
 }
