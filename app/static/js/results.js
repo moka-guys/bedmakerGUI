@@ -623,23 +623,23 @@ function normalizeChromosome(chr) {
 
 function toggleChrPrefix() {
     addChrPrefix = document.getElementById('addChrPrefix').checked;
-    refreshIGV();
-    updateTableWithChrPrefix();
-}
-
-function updateTableWithChrPrefix() {
-    const table = document.querySelector('.table');
-    const rows = table.querySelectorAll('tbody tr');
-    rows.forEach((row, index) => {
-        const chrCell = row.cells[0];
-        const chrValue = chrCell.textContent.trim();
+    
+    // Get the current results and update them
+    const results = JSON.parse(document.getElementById('bedContent').value);
+    results.forEach(result => {
+        const chrValue = result.loc_region;
         if (addChrPrefix && !chrValue.startsWith('chr')) {
-            chrCell.textContent = 'chr' + chrValue;
+            result.loc_region = 'chr' + chrValue;
         } else if (!addChrPrefix && chrValue.startsWith('chr')) {
-            chrCell.textContent = chrValue.substring(3);
+            result.loc_region = chrValue.substring(3);
         }
-        updateResult(chrCell, index, 'loc_region');
     });
+    
+    // Update the hidden input with modified results
+    document.getElementById('bedContent').value = JSON.stringify(results);
+    
+    // Update just the table
+    updateTable(results);
 }
 
 function handleBedFileUpload(event) {
