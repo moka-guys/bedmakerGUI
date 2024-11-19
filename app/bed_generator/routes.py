@@ -139,10 +139,16 @@ def adjust_padding():
     results = data.get('results', [])
 
     for result in results:
+        # Store original coordinates if they don't exist (i.e., opened results from BED manager instead of query)
+        if 'original_loc_start' not in result:
+            result['original_loc_start'] = result['loc_start']
+        if 'original_loc_end' not in result:
+            result['original_loc_end'] = result['loc_end']
+
         strand = result.get('loc_strand', 1)  # Default to forward strand if not specified
         # Check both original coordinates and rsID presence
         is_variant = (
-            int(result.get('original_loc_start', 0)) == int(result.get('original_loc_end', 0)) or
+            int(result['original_loc_start']) == int(result['original_loc_end']) or
             bool(re.match(r'^RS\d+$', result.get('rsid', ''), re.IGNORECASE))
         )
         
