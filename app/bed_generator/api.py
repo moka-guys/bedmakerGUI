@@ -408,7 +408,8 @@ def process_coordinate_data(data: List[Dict], chrom: str, start: int, end: int, 
             'entrez_id': feature.get('id', 'unknown_id'),
             'biotype': feature.get('biotype', 'unknown_biotype'),
             'strand': feature.get('strand', 1),
-            'alert': ''
+            'alert': '',
+            'is_genomic_coordinate': True
         }
         
         # Separates known and unknown gene features.

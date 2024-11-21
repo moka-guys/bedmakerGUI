@@ -151,13 +151,6 @@ def process_tark_data(r: Dict[str, Any], include_5utr: bool, include_3utr: bool)
 def process_coordinates(coordinates: List[str], assembly: str = 'GRCh38') -> List[Dict[str, Any]]:
     """
     Processes a list of genomic coordinates, fetching overlapping gene information.
-
-    Args:
-        coordinates: A list of genomic coordinates in the format 'chromosome:start-end'.
-        assembly: The genome assembly version (default is 'GRCh38').
-
-    Returns:
-        A list of dictionaries containing gene information for each coordinate.
     """
     results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
@@ -169,6 +162,9 @@ def process_coordinates(coordinates: List[str], assembly: str = 'GRCh38') -> Lis
             try:
                 data = future.result()
                 if data:
+                    # Ensure each result has the is_genomic_coordinate flag set
+                    for item in data:
+                        item['is_genomic_coordinate'] = True
                     results.extend(data)
             except Exception as e:
                 print(f"Error processing coordinate {coord}: {e}")

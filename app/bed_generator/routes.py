@@ -129,6 +129,7 @@ def store_no_data():
 def adjust_padding():
     """
     Adjusts the padding for results, with separate handling for SNPs.
+    Skips padding for genomic coordinates.
     """
     data = request.get_json()
     padding_5 = int(data.get('padding_5', 0))
@@ -139,20 +140,36 @@ def adjust_padding():
     results = data.get('results', [])
 
     for result in results:
-        # Store original coordinates if they don't exist (i.e., opened results from BED manager instead of query)
+        # Check for genomic coordinates in multiple ways
+        is_genomic = (
+            result.get('is_genomic_coordinate', False) or  # Explicit flag
+            result.get('gene', '') == 'none' or  # Default value from coordinate processing
+            result.get('alert', '').startswith('No genes found overlapping coordinate')  # Alert message
+        )
+        
+        if is_genomic:
+            # Ensure original coordinates are preserved
+            if 'original_loc_start' not in result:
+                result['original_loc_start'] = result['loc_start']
+            if 'original_loc_end' not in result:
+                result['original_loc_end'] = result['loc_end']
+            # Skip padding for genomic coordinates
+            result['loc_start'] = result['original_loc_start']
+            result['loc_end'] = result['original_loc_end']
+            continue
+            
+        # Rest of the padding logic for non-genomic coordinates
         if 'original_loc_start' not in result:
             result['original_loc_start'] = result['loc_start']
         if 'original_loc_end' not in result:
             result['original_loc_end'] = result['loc_end']
 
-        strand = result.get('loc_strand', 1)  # Default to forward strand if not specified
-        # Check both original coordinates and rsID presence
+        strand = result.get('loc_strand', 1)
         is_variant = (
             int(result['original_loc_start']) == int(result['original_loc_end']) or
             bool(re.match(r'^RS\d+$', result.get('rsid', ''), re.IGNORECASE))
         )
         
-        # Choose appropriate padding based on whether it's a variant
         p5 = snp_padding_5 if (is_variant and use_separate_snp_padding) else padding_5
         p3 = snp_padding_3 if (is_variant and use_separate_snp_padding) else padding_3
 
@@ -338,6 +355,10 @@ def download_bed(bed_type):
             
             # Apply custom padding for raw BED files
             for result in results:
+                # Skip padding for genomic coordinates
+                if result.get('is_genomic_coordinate', False):
+                    continue
+                
                 strand = result.get('loc_strand', 1)
                 is_variant = (
                     int(result.get('original_loc_start', 0)) == int(result.get('original_loc_end', 0)) or
