@@ -24,11 +24,16 @@ fetch('/bed_generator/settings')
     });
 
 document.addEventListener('DOMContentLoaded', function () {
-    // Store initial state
+    // Store initial state WITHOUT filtering
     const initialResults = JSON.parse(document.getElementById('bedContent').value);
-    originalResults = JSON.parse(JSON.stringify(initialResults)); // Deep copy
+    
+    // Store complete results without filtering
+    originalResults = JSON.parse(JSON.stringify(initialResults)); // Deep copy of complete results
     utrStates.none = initialResults;
     currentUTRState = 'none';
+    
+    // Update the table with initial display (which will apply filtering)
+    updateTable(initialResults);
     
     loadIGV();
 
@@ -737,7 +742,12 @@ function updateTable(results) {
     const tableBody = document.querySelector('.table tbody');
     tableBody.innerHTML = ''; // Clear existing rows
 
-    results.forEach((result, index) => {
+    // Filter out invalid entries where start > end
+    const validResults = results.filter(result => 
+        parseInt(result.loc_start) <= parseInt(result.loc_end)
+    );
+
+    validResults.forEach((result, index) => {
         const row = document.createElement('tr');
         row.onclick = function() { setActiveRow(this, index); };
         
@@ -774,9 +784,9 @@ function updateTable(results) {
         tableBody.appendChild(row);
     });
 
-    // Update the hidden input with the new results
-    document.getElementById('bedContent').value = JSON.stringify(results);
-    currentResults = results; // Update the global currentResults variable
+    // Update the hidden input with the filtered results
+    document.getElementById('bedContent').value = JSON.stringify(validResults);
+    currentResults = validResults; // Update the global currentResults variable
 }
 
 function updateIGV(results) {
@@ -821,8 +831,8 @@ function toggleUTR() {
     const include5 = document.getElementById('include5UTR').checked;
     const include3 = document.getElementById('include3UTR').checked;
     
-    // Get current results
-    const results = JSON.parse(document.getElementById('bedContent').value);
+    // Get complete original results
+    let results = JSON.parse(JSON.stringify(originalResults));
     
     // Process each result
     const adjustedResults = results.map(result => {
@@ -858,10 +868,10 @@ function toggleUTR() {
         };
     });
 
-    // Update table
+    // Update table with adjusted results
     updateTable(adjustedResults);
     
-    // Update IGV - remove and recreate track
+    // Update IGV
     if (igvBrowser) {
         // Remove existing custom track
         const tracks = igvBrowser.trackViews.filter(trackView => 
