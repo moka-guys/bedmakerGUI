@@ -24,7 +24,10 @@
 
     <!-- Settings Form -->
     <div class="card shadow-sm">
-        <div class="card-body">
+        <div class="card-header">
+            <i class="fa-solid fa-gear" style="padding-right: 5px;"></i>Settings
+        </div>
+        <div class="card-body pt-4">
             <form id="settingsForm" method="post" action="{{ url_for('bed_generator.settings') }}">
                 {{ form.hidden_tag() }}
                 
@@ -32,7 +35,7 @@
                 <div class="row">
                     <!-- BED Type Column -->
                     <div class="col-md-3 mb-4">
-                        <div class="list-group" id="bed-types" role="tablist">
+                        <div class="list-group" id="bed-types" role="tablist" style="background-color: #f8f9fa; padding: 15px; border-radius: 5px;">
                             <a class="list-group-item list-group-item-action active" data-bs-toggle="list" href="#data-bed" role="tab">Data BED</a>
                             <a class="list-group-item list-group-item-action" data-bs-toggle="list" href="#sambamba-bed" role="tab">Sambamba BED</a>
                             <a class="list-group-item list-group-item-action" data-bs-toggle="list" href="#exomedepth-bed" role="tab">ExomeDepth BED</a>
@@ -42,11 +45,13 @@
 
                     <!-- Settings Content Column -->
                     <div class="col-md-9">
-                        <div class="tab-content">
+                        <div class="tab-content" style="background-color: #f8f9fa; padding: 20px; border-radius: 5px;">
                             {% for bed_type in ['data', 'sambamba', 'exomeDepth', 'cnv'] %}
                                 <div class="tab-pane fade {% if loop.first %}show active{% endif %}" 
                                      id="{{ bed_type|lower }}-bed" role="tabpanel">
-                                    <h5 class="mb-4">{{ bed_type }} BED Settings</h5>
+                                    <h5 class="mb-4" style="color: #2c3e50; border-bottom: 2px solid #dee2e6; padding-bottom: 8px;">
+                                        {{ bed_type }} BED Settings
+                                    </h5>
                                     
                                     <!-- Padding Setting -->
                                     <div class="mb-4">
@@ -60,8 +65,8 @@
                                     </div>
 
                                     <!-- UTR Settings -->
-                                    <div class="card">
-                                        <div class="card-body">
+                                    <div class="card" style="background-color: white;">
+                                        <div class="card-body" style="background-color: #f0f0f0;">
                                             <h6 class="card-title">UTR Settings</h6>
                                             <div class="row g-3">
                                                 <div class="col-md-6">
