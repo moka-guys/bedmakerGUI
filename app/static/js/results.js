@@ -4,6 +4,14 @@ let activeRowIndex = 0;
 let addChrPrefix = false;
 let currentSortColumn = -1;
 let sortDirection = 1; // 1 for ascending, -1 for descending
+let utrStates = {
+    'none': null,
+    'both': null,
+    '5only': null,
+    '3only': null
+};
+let currentUTRState = 'none';
+let igvTracks = [];  // Store track references
 
 // Load settings when the page loads
 fetch('/bed_generator/settings')
@@ -15,6 +23,11 @@ fetch('/bed_generator/settings')
     });
 
 document.addEventListener('DOMContentLoaded', function () {
+    // Store initial state
+    const initialResults = JSON.parse(document.getElementById('bedContent').value);
+    utrStates.none = initialResults;
+    currentUTRState = 'none';
+    
     loadIGV();
 
     // Add event listener to the file input for uploading BED files
@@ -223,32 +236,65 @@ function updateFilenamePrefixForAll() {
 function downloadRawBed() {
     const results = JSON.parse(document.getElementById('bedContent').value);
     const filenamePrefix = document.getElementById('bedFileNamePrefix').value;
-    const padding5 = parseInt(document.getElementById('paddingInput5').value) || 0;
-    const padding3 = parseInt(document.getElementById('paddingInput3').value) || 0;
-    const useSeparateSnpPadding = document.getElementById('separateSnpPadding').checked;
-    const snpPadding5 = useSeparateSnpPadding ? (parseInt(document.getElementById('snpPadding5').value) || 0) : padding5;
-    const snpPadding3 = useSeparateSnpPadding ? (parseInt(document.getElementById('snpPadding3').value) || 0) : padding3;
-
-    downloadBedFile('raw', {
-        results,
-        filename_prefix: filenamePrefix,
-        add_chr_prefix: addChrPrefix,
-        padding_5: padding5,
-        padding_3: padding3,
-        use_separate_snp_padding: useSeparateSnpPadding,
-        snp_padding_5: snpPadding5,
-        snp_padding_3: snpPadding3
+    const addChrPrefix = document.getElementById('addChrPrefix').checked;
+    const include5UTR = document.getElementById('include5UTR').checked;
+    const include3UTR = document.getElementById('include3UTR').checked;
+    
+    fetch('/bed_generator/download_bed/raw', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            results: results,
+            filename_prefix: filenamePrefix,
+            add_chr_prefix: addChrPrefix,
+            padding_5: parseInt(document.getElementById('paddingInput5')?.value || 0),
+            padding_3: parseInt(document.getElementById('paddingInput3')?.value || 0),
+            use_separate_snp_padding: document.getElementById('separateSnpPadding')?.checked || false,
+            snp_padding_5: parseInt(document.getElementById('snpPadding5')?.value || 0),
+            snp_padding_3: parseInt(document.getElementById('snpPadding3')?.value || 0),
+            include_5utr: include5UTR,
+            include_3utr: include3UTR
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+        downloadFile(data.content, data.filename);
     });
 }
 
 function downloadCustomBed(bedType) {
     const results = JSON.parse(document.getElementById('bedContent').value);
     const filenamePrefix = document.getElementById('bedFileNamePrefix').value;
-    
-    downloadBedFile(bedType, {
-        results,
-        filename_prefix: filenamePrefix,
-        add_chr_prefix: addChrPrefix
+    const addChrPrefix = document.getElementById('addChrPrefix').checked;
+    const include5UTR = document.getElementById('include5UTR').checked;
+    const include3UTR = document.getElementById('include3UTR').checked;
+
+    fetch(`/bed_generator/download_bed/${bedType}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            results: results,
+            filename_prefix: filenamePrefix,
+            add_chr_prefix: addChrPrefix,
+            include_5utr: include5UTR,
+            include_3utr: include3UTR
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+        downloadFile(data.content, data.filename);
     });
 }
 
@@ -681,6 +727,11 @@ function handleBedFileUpload(event) {
 
 // Combine updateTable and refreshTable into a single function
 function updateTable(results) {
+    // Store initial state if not already stored
+    if (!utrStates.none) {
+        utrStates.none = results;
+    }
+    
     const tableBody = document.querySelector('.table tbody');
     tableBody.innerHTML = ''; // Clear existing rows
 
@@ -727,40 +778,125 @@ function updateTable(results) {
 }
 
 function updateIGV(results) {
-    if (igvBrowser) {
-        igvBrowser.removeAllTracks(); // Remove all existing tracks
+    if (!igvBrowser) return;
 
-        const bedFeatures = results.map(result => ({
-            chr: result.loc_region,
-            start: parseInt(result.loc_start),
-            end: parseInt(result.loc_end),
-            name: result.gene
-        }));
+    // Create bed features from results
+    const bedFeatures = results.map(result => ({
+        chr: addChrPrefix ? 'chr' + result.loc_region : result.loc_region,
+        start: parseInt(result.loc_start),
+        end: parseInt(result.loc_end),
+        name: result.gene || 'Unknown',
+        score: 1000,
+        strand: result.strand === -1 ? '-' : '+'
+    }));
 
+    // Find existing custom track
+    const existingTrack = igvBrowser.trackViews.find(trackView => 
+        trackView.track.name === 'Custom BED'
+    )?.track;
+
+    if (existingTrack) {
+        // Update existing track
+        existingTrack.features = bedFeatures;
+        igvBrowser.updateViews();
+    } else {
+        // Create new track if none exists
         const bedTrack = {
-            name: 'BED Track',
+            name: 'Custom BED',
             type: 'annotation',
             format: 'bed',
             features: bedFeatures,
             displayMode: 'EXPANDED',
-            color: 'rgb(0, 0, 150)'
+            color: 'rgb(150, 0, 0)'
         };
-
-        igvBrowser.loadTrack(bedTrack).then(() => {
-            console.log('IGV track updated successfully');
-            if (results.length > 0) {
-                const firstResult = results[0];
-                const padding = 100; // Add some padding for better visibility
-                igvBrowser.goto(
-                    firstResult.loc_region,
-                    Math.max(0, parseInt(firstResult.loc_start) - padding),
-                    parseInt(firstResult.loc_end) + padding
-                );
-            }
-        }).catch(error => {
-            console.error('Error updating IGV track:', error);
-        });
-    } else {
-        console.warn('IGV browser not initialized');
+        igvBrowser.loadTrack(bedTrack);
     }
+}
+
+function toggleUTR() {
+    const include5 = document.getElementById('include5UTR').checked;
+    const include3 = document.getElementById('include3UTR').checked;
+    
+    // Get current results
+    const results = JSON.parse(document.getElementById('bedContent').value);
+    
+    // Process each result
+    const adjustedResults = results.map(result => {
+        // Skip if it's a genomic coordinate or has no UTR data
+        if (!result.full_loc_start || result.is_genomic_coordinate) {
+            return result;
+        }
+
+        // Start with full coordinates
+        let newStart = result.full_loc_start;
+        let newEnd = result.full_loc_end;
+
+        if (result.strand === 1) {  // Positive strand
+            if (!include5 && result.five_prime_utr_end) {
+                newStart = Math.max(newStart, result.five_prime_utr_end);
+            }
+            if (!include3 && result.three_prime_utr_start) {
+                newEnd = Math.min(newEnd, result.three_prime_utr_start);
+            }
+        } else {  // Negative strand
+            if (!include5 && result.five_prime_utr_end) {
+                newEnd = Math.min(newEnd, result.five_prime_utr_end);
+            }
+            if (!include3 && result.three_prime_utr_start) {
+                newStart = Math.max(newStart, result.three_prime_utr_start);
+            }
+        }
+        
+        return {
+            ...result,
+            loc_start: newStart,
+            loc_end: newEnd
+        };
+    });
+
+    // Update table
+    updateTable(adjustedResults);
+    
+    // Update IGV - remove and recreate track
+    if (igvBrowser) {
+        // Remove existing custom track
+        const tracks = igvBrowser.trackViews.filter(trackView => 
+            trackView.track.name === 'Custom BED'
+        );
+        tracks.forEach(track => igvBrowser.removeTrack(track.track));
+
+        // Add new track with updated coordinates
+        const bedTrack = {
+            name: 'Custom BED',
+            type: 'annotation',
+            format: 'bed',
+            features: adjustedResults.map(result => ({
+                chr: addChrPrefix ? 'chr' + result.loc_region : result.loc_region,
+                start: parseInt(result.loc_start),
+                end: parseInt(result.loc_end),
+                name: result.gene || 'Unknown',
+                score: 1000,
+                strand: result.strand === -1 ? '-' : '+'
+            })),
+            displayMode: 'EXPANDED',
+            color: 'darkgreen'
+        };
+        igvBrowser.loadTrack(bedTrack);
+    }
+
+    // Update hidden input for downloads
+    document.getElementById('bedContent').value = JSON.stringify(adjustedResults);
+}
+
+function downloadFile(content, filename) {
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
 }

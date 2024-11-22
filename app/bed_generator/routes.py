@@ -14,13 +14,14 @@ Routes:
 - download_bed(bed_type): Generates and returns a specific type of BED file.
 - get_published_bed_files(): Retrieves a list of published BED files.
 - get_bed_files(): Retrieves a list of all BED files with their details.
+- adjust_utrs(): Adjusts UTRs for results based on user input.
 """
 
 from flask import render_template, request, jsonify, session, current_app, redirect, url_for, flash
 from flask_login import current_user, login_required
 from app.bed_generator import bed_generator_bp
 from app.bed_generator.utils import (
-    store_panels_in_json, get_panels_from_json, load_settings, collect_warnings, increment_version_number
+    store_panels_in_json, get_panels_from_json, load_settings, collect_warnings, increment_version_number, process_tark_data
 )
 from app.bed_generator.logic import process_form_data, store_results_in_session, process_bulk_data, get_mane_plus_clinical_identifiers, generate_bed_file
 from app.forms import SettingsForm, BedGeneratorForm
@@ -340,56 +341,36 @@ def download_bed(bed_type):
         results = data['results']
         filename_prefix = data.get('filename_prefix', '')
         add_chr_prefix = data.get('add_chr_prefix', False)
+        include_5utr = data.get('include_5utr', False)
+        include_3utr = data.get('include_3utr', False)
+        
+        # Process UTR settings first
+        adjusted_results = []
+        for result in results:
+            if not result.get('is_genomic_coordinate', False):
+                processed = process_tark_data(result, include_5utr, include_3utr)
+                if processed:
+                    adjusted_results.append(processed)
+            else:
+                adjusted_results.append(result)
         
         # Get settings from database for custom bed types
         settings = Settings.get_settings()
         settings_dict = settings.to_dict()
         
-        # Handle raw BED files separately
-        if bed_type == 'raw':
-            padding_5 = data.get('padding_5', 0)
-            padding_3 = data.get('padding_3', 0)
-            use_separate_snp_padding = data.get('use_separate_snp_padding', False)
-            snp_padding_5 = data.get('snp_padding_5', padding_5)
-            snp_padding_3 = data.get('snp_padding_3', padding_3)
-            
-            # Apply custom padding for raw BED files
-            for result in results:
-                # Skip padding for genomic coordinates
-                if result.get('is_genomic_coordinate', False):
-                    continue
-                
-                strand = result.get('loc_strand', 1)
-                is_variant = (
-                    int(result.get('original_loc_start', 0)) == int(result.get('original_loc_end', 0)) or
-                    bool(re.match(r'^RS\d+$', result.get('rsid', ''), re.IGNORECASE))
-                )
-                
-                p5 = snp_padding_5 if (is_variant and use_separate_snp_padding) else padding_5
-                p3 = snp_padding_3 if (is_variant and use_separate_snp_padding) else padding_3
-                
-                if strand > 0:
-                    result['loc_start'] = int(result.get('original_loc_start', result['loc_start'])) - p5
-                    result['loc_end'] = int(result.get('original_loc_end', result['loc_end'])) + p3
-                else:
-                    result['loc_start'] = int(result.get('original_loc_start', result['loc_start'])) - p3
-                    result['loc_end'] = int(result.get('original_loc_end', result['loc_end'])) + p5
-        else:
-            # For custom BED types, use original coordinates
-            for result in results:
-                if 'original_loc_start' in result and 'original_loc_end' in result:
-                    result['loc_start'] = result['original_loc_start']
-                    result['loc_end'] = result['original_loc_end']
-        
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         filename = f"{filename_prefix}_{timestamp}_{bed_type}.bed" if filename_prefix else f"{timestamp}_{bed_type}.bed"
         
-        bed_content = generate_bed_file(bed_type, results, filename_prefix, settings_dict, add_chr_prefix)
+        # Use the adjusted results when generating the BED file
+        bed_content = generate_bed_file(bed_type, adjusted_results, filename_prefix, settings_dict, add_chr_prefix)
         
         return jsonify({'content': bed_content[0], 'filename': filename})
     except Exception as e:
-        print(f"Error in download_bed: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        current_app.logger.error(f"Error generating {bed_type} BED file: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @bed_generator_bp.route('/get_published_bed_files')
 @login_required
@@ -420,3 +401,36 @@ def get_bed_files():
     except Exception as e:
         current_app.logger.error(f"Error in get_bed_files: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@bed_generator_bp.route('/adjust_utrs', methods=['POST'])
+def adjust_utrs():
+    try:
+        data = request.get_json()
+        results = data['results']
+        include_5utr = data['include_5utr']
+        include_3utr = data['include_3utr']
+        
+        adjusted_results = []
+        for result in results:
+            # Skip UTR processing for genomic coordinates
+            if (result.get('is_genomic_coordinate', False) or 
+                result.get('gene') == 'none' or 
+                result.get('alert', '').startswith('No genes found overlapping coordinate')):
+                adjusted_results.append(result)
+                continue
+            
+            # Process through process_tark_data for gene-based entries
+            processed = process_tark_data(result, include_5utr, include_3utr)
+            if processed:
+                adjusted_results.append(processed)
+        
+        return jsonify({
+            'success': True,
+            'results': adjusted_results
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error in adjust_utrs: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

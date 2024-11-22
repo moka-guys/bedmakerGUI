@@ -26,20 +26,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
         var assembly = document.getElementById('assembly').value;
 
-        var include5UTR = document.getElementById('include5UTR').checked;
-        var include3UTR = document.getElementById('include3UTR').checked;
-
-        // Clear the file inputs before submitting the form
-        document.getElementById('bedFile').value = '';
-        document.getElementById('csvFile').value = '';
-
         // Add this line to capture the initial query
         var initialQuery = {
             identifiers: document.getElementById('identifiers').value,
             coordinates: document.getElementById('coordinates').value,
             assembly: assembly,
-            include5UTR: include5UTR,
-            include3UTR: include3UTR
+            include5UTR: false,  // Default to false
+            include3UTR: false   // Default to false
         };
 
         // Modify the payload to include the initial query
@@ -47,10 +40,14 @@ document.addEventListener('DOMContentLoaded', function() {
             identifiers: document.getElementById('identifiers').value.split(/[\s,]+/).filter(Boolean),
             coordinates: document.getElementById('coordinates').value.trim(),
             assembly: assembly,
-            include5UTR: include5UTR,
-            include3UTR: include3UTR,
-            initial_query: initialQuery  // Send as an object, not a string
+            include5UTR: false,  // Default to false
+            include3UTR: false,  // Default to false
+            initial_query: initialQuery
         };
+
+        // Clear the file inputs before submitting the form
+        document.getElementById('bedFile').value = '';
+        document.getElementById('csvFile').value = '';
 
         fetch('/bed_generator/bulk_process', {
             method: 'POST',
@@ -81,18 +78,8 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(error => {
             console.error('Error:', error);
             alert('An unexpected error occurred.');
-        })
-        .finally(() => {
-            // Enable the button and revert it back to its original state
-            generateButton.disabled = false;
-            generateButton.classList.remove('loading');
-            buttonText.style.display = 'inline';
-            dnaLoader.style.display = 'none';
-            dnaLoader.innerHTML = ''; // Clear the DNA loader
         });
     });
-
-    document.getElementById('panelDropdown').addEventListener('change', updateIdentifiers);
 });
 
 // Other functions

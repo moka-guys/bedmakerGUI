@@ -97,54 +97,29 @@ def process_identifiers(identifiers: List[str], assembly: str, include_5utr: boo
     return results, no_data_identifiers
 
 def process_tark_data(r: Dict[str, Any], include_5utr: bool, include_3utr: bool) -> Optional[Dict[str, Any]]:
-    """
-    Processes a single TARK data entry, adjusting for UTRs and padding.
-    
-    Args:
-        r: Dictionary containing TARK data
-        include_5utr: Boolean indicating whether to include 5' UTR
-        include_3utr: Boolean indicating whether to include 3' UTR
-        
-    Returns:
-        Optional[Dict[str, Any]]: Processed data dictionary or None if invalid
-    """
-    # Early return if essential data is missing
     if r is None or 'loc_start' not in r or 'loc_end' not in r:
         return None
 
-    strand = r.get('loc_strand', 1)  # Default to positive strand if not specified
+    strand = r.get('loc_strand', 1)
     
-    # Get UTR boundaries
-    five_prime_utr_end = r.get('five_prime_utr', {}).get('end')
-    three_prime_utr_start = r.get('three_prime_utr', {}).get('start')
+    # Store the full coordinates and UTR positions
+    r['full_loc_start'] = r['loc_start']
+    r['full_loc_end'] = r['loc_end']
+    r['five_prime_utr_end'] = r.get('five_prime_utr', {}).get('end')
+    r['three_prime_utr_start'] = r.get('three_prime_utr', {}).get('start')
+    r['strand'] = strand
 
-    # Check if exon is entirely within UTR regions
+    # Apply initial UTR adjustments
     if strand == 1:  # Positive strand
-        if not include_5utr and five_prime_utr_end and r['loc_end'] <= five_prime_utr_end:
-            return None  # Exon entirely within 5' UTR
-        if not include_3utr and three_prime_utr_start and r['loc_start'] >= three_prime_utr_start:
-            return None  # Exon entirely within 3' UTR
+        if not include_5utr and r['five_prime_utr_end']:
+            r['loc_start'] = max(r['loc_start'], r['five_prime_utr_end'])
+        if not include_3utr and r['three_prime_utr_start']:
+            r['loc_end'] = min(r['loc_end'], r['three_prime_utr_start'])
     else:  # Negative strand
-        if not include_5utr and five_prime_utr_end and r['loc_start'] >= five_prime_utr_end:
-            return None  # Exon entirely within 5' UTR
-        if not include_3utr and three_prime_utr_start and r['loc_end'] <= three_prime_utr_start:
-            return None  # Exon entirely within 3' UTR
-
-    # Apply UTR adjustments for partial overlaps
-    if strand == 1:  # Positive strand
-        if not include_5utr and five_prime_utr_end:
-            r['loc_start'] = max(r['loc_start'], five_prime_utr_end)
-        if not include_3utr and three_prime_utr_start:
-            r['loc_end'] = min(r['loc_end'], three_prime_utr_start)
-    else:  # Negative strand
-        if not include_5utr and five_prime_utr_end:
-            r['loc_end'] = min(r['loc_end'], five_prime_utr_end)
-        if not include_3utr and three_prime_utr_start:
-            r['loc_start'] = max(r['loc_start'], three_prime_utr_start)
-    
-    # Store the UTR-adjusted coordinates as original coordinates
-    r['original_loc_start'] = r['loc_start']
-    r['original_loc_end'] = r['loc_end']
+        if not include_5utr and r['five_prime_utr_end']:
+            r['loc_end'] = min(r['loc_end'], r['five_prime_utr_end'])
+        if not include_3utr and r['three_prime_utr_start']:
+            r['loc_start'] = max(r['loc_start'], r['three_prime_utr_start'])
     
     return r
 

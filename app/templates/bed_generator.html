@@ -121,21 +121,6 @@
                     <label for="csvFile" class="form-label"><strong class="text-muted"><small>Upload CSV/TXT file with identifiers</strong> <i>Values separated using either commas or new lines</i></small></label>
                     {{ form.csvFile(class="form-control", id="csvFile", accept=".csv,.txt") }}
                 </div>
-                <hr class="my-3">
-                <div class="mb-3">
-                    <div class="form-check form-check-inline">
-                        {{ form.include5UTR(class="form-check-input", id="include5UTR") }}
-                        <label class="form-check-label">
-                            <small style="font-size: 0.8em; color: #6c757d;"><b>{{ form.include5UTR.label.text }}</b></small>
-                        </label>
-                    </div>
-                    <div class="form-check form-check-inline">
-                        {{ form.include3UTR(class="form-check-input", id="include3UTR") }}
-                        <label class="form-check-label">
-                            <small style="font-size: 0.8em; color: #6c757d;"><b>{{ form.include3UTR.label.text }}</b></small>
-                        </label>
-                    </div>
-                </div>
             </div>
         </div>
 
