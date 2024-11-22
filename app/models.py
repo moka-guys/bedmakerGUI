@@ -109,6 +109,14 @@ class Settings(db.Model):
     sambamba_padding = db.Column(db.Integer, default=0)
     exomeDepth_padding = db.Column(db.Integer, default=0)
     cnv_padding = db.Column(db.Integer, default=0)
+    data_include_5utr = db.Column(db.Boolean, default=False)
+    data_include_3utr = db.Column(db.Boolean, default=False)
+    sambamba_include_5utr = db.Column(db.Boolean, default=False)
+    sambamba_include_3utr = db.Column(db.Boolean, default=False)
+    exomeDepth_include_5utr = db.Column(db.Boolean, default=False)
+    exomeDepth_include_3utr = db.Column(db.Boolean, default=False)
+    cnv_include_5utr = db.Column(db.Boolean, default=False)
+    cnv_include_3utr = db.Column(db.Boolean, default=False)
 
     @classmethod
     def get_settings(cls):
@@ -124,16 +132,38 @@ class Settings(db.Model):
             'data_padding': self.data_padding,
             'sambamba_padding': self.sambamba_padding,
             'exomeDepth_padding': self.exomeDepth_padding,
-            'cnv_padding': self.cnv_padding
+            'cnv_padding': self.cnv_padding,
+            'data_include_5utr': self.data_include_5utr,
+            'data_include_3utr': self.data_include_3utr,
+            'sambamba_include_5utr': self.sambamba_include_5utr,
+            'sambamba_include_3utr': self.sambamba_include_3utr,
+            'exomeDepth_include_5utr': self.exomeDepth_include_5utr,
+            'exomeDepth_include_3utr': self.exomeDepth_include_3utr,
+            'cnv_include_5utr': self.cnv_include_5utr,
+            'cnv_include_3utr': self.cnv_include_3utr
         }
 
     def update_from_form(self, form):
         """Updates settings from form data."""
-        for field in ['data_padding', 'sambamba_padding', 'exomeDepth_padding', 'cnv_padding']:
+        fields = [
+            'data_padding', 'sambamba_padding', 'exomeDepth_padding', 'cnv_padding',
+            'data_include_5utr', 'data_include_3utr',
+            'sambamba_include_5utr', 'sambamba_include_3utr',
+            'exomeDepth_include_5utr', 'exomeDepth_include_3utr',
+            'cnv_include_5utr', 'cnv_include_3utr'
+        ]
+        for field in fields:
             setattr(self, field, getattr(form, field).data)
         db.session.commit()
 
     def populate_form(self, form):
         """Populates a form with current settings values."""
-        for field in ['data_padding', 'sambamba_padding', 'exomeDepth_padding', 'cnv_padding']:
+        fields = [
+            'data_padding', 'sambamba_padding', 'exomeDepth_padding', 'cnv_padding',
+            'data_include_5utr', 'data_include_3utr',
+            'sambamba_include_5utr', 'sambamba_include_3utr',
+            'exomeDepth_include_5utr', 'exomeDepth_include_3utr',
+            'cnv_include_5utr', 'cnv_include_3utr'
+        ]
+        for field in fields:
             getattr(form, field).data = getattr(self, field)

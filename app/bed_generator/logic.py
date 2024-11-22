@@ -18,6 +18,7 @@ from flask import session
 from .api import validate_coordinates
 from typing import List, Tuple, Dict, Any, Set
 from flask_wtf import FlaskForm
+from app.bed_generator.utils import process_tark_data
 
 def process_form_data(form: FlaskForm) -> Tuple[List[Dict[str, Any]], List[str], Dict[str, Any]]:
     """
@@ -141,7 +142,7 @@ def get_mane_plus_clinical_identifiers(results: List[Dict[str, Any]]) -> Set[str
         if isinstance(result, dict) and result.get('mane_transcript_type') == 'MANE PLUS CLINICAL'
     )
 
-def generate_bed_file(bed_type: str, results: List[Dict[str, Any]], filename_prefix: str, settings: Dict[str, int], add_chr_prefix: bool) -> Tuple[str, str]:
+def generate_bed_file(bed_type: str, results: List[Dict[str, Any]], filename_prefix: str, settings: Dict[str, Any], add_chr_prefix: bool) -> Tuple[str, str]:
     """
     Generates a BED file of a specified type using processed results and settings.
 
@@ -164,7 +165,7 @@ def generate_bed_file(bed_type: str, results: List[Dict[str, Any]], filename_pre
         bed_content = BedGenerator.create_raw_bed(results, add_chr_prefix)
         filename = f'{filename_prefix}_raw.bed' if filename_prefix else 'raw.bed'
     else:
-        # Map bed_type to settings key
+        # Map bed_type to settings
         padding_map = {
             'data': settings.get('data_padding', 0),
             'sambamba': settings.get('sambamba_padding', 0),
@@ -172,19 +173,25 @@ def generate_bed_file(bed_type: str, results: List[Dict[str, Any]], filename_pre
             'cnv': settings.get('cnv_padding', 0)
         }
         
-        # Get the appropriate padding for this bed type
-        padding = padding_map.get(bed_type.lower(), 0)
+        utr_settings = {
+            'data': (settings.get('data_include_5utr', False), settings.get('data_include_3utr', False)),
+            'sambamba': (settings.get('sambamba_include_5utr', False), settings.get('sambamba_include_3utr', False)),
+            'exome_depth': (settings.get('exomeDepth_include_5utr', False), settings.get('exomeDepth_include_3utr', False)),
+            'cnv': (settings.get('cnv_include_5utr', False), settings.get('cnv_include_3utr', False))
+        }
         
-        # Create a copy of results with appropriate padding
-        padded_results = []
+        padding = padding_map.get(bed_type.lower(), 0)
+        include_5utr, include_3utr = utr_settings.get(bed_type.lower(), (False, False))
+        
+        # Process results with UTR settings
+        processed_results = []
         for result in results:
-            result_copy = result.copy()
-            # Check if the result came from an rsID
-            is_variant = bool(re.match(r'^RS\d+$', result.get('rsid', ''), re.IGNORECASE))
-            result_copy['_padding'] = padding  # Use the same padding for variants and non-variants
-            padded_results.append(result_copy)
-            
-        bed_content = BedGenerator.create_formatted_bed(padded_results, bed_type.lower(), padding, add_chr_prefix)
+            processed = process_tark_data(result.copy(), include_5utr, include_3utr)
+            if processed:
+                processed['_padding'] = padding
+                processed_results.append(processed)
+        
+        bed_content = BedGenerator.create_formatted_bed(processed_results, bed_type.lower(), padding, add_chr_prefix)
         filename = f'{filename_prefix}_{bed_type}.bed' if filename_prefix else f'{bed_type}.bed'
     
     return bed_content, filename

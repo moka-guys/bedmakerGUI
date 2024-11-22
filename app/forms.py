@@ -7,6 +7,14 @@ class SettingsForm(FlaskForm):
     sambamba_padding = IntegerField('Sambamba Padding', validators=[DataRequired(), NumberRange(min=0)])
     exomeDepth_padding = IntegerField('ExomeDepth Padding', validators=[DataRequired(), NumberRange(min=0)])
     cnv_padding = IntegerField('CNV Padding', validators=[DataRequired(), NumberRange(min=0)])
+    data_include_5utr = BooleanField("Include 5' UTR for Data BED")
+    data_include_3utr = BooleanField("Include 3' UTR for Data BED")
+    sambamba_include_5utr = BooleanField("Include 5' UTR for Sambamba BED")
+    sambamba_include_3utr = BooleanField("Include 3' UTR for Sambamba BED")
+    exomeDepth_include_5utr = BooleanField("Include 5' UTR for ExomeDepth BED")
+    exomeDepth_include_3utr = BooleanField("Include 3' UTR for ExomeDepth BED")
+    cnv_include_5utr = BooleanField("Include 5' UTR for CNV BED")
+    cnv_include_3utr = BooleanField("Include 3' UTR for CNV BED")
     submit = SubmitField('Save Settings')
 
 class BedGeneratorForm(FlaskForm):

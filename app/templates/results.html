@@ -187,12 +187,32 @@
                                     <i class="bi bi-download"></i> Custom BED Files
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="customBedDropdown">
-                                    <li><small class="dropdown-header text-muted px-3">Custom BED padding is configured in Settings</small></li>
+                                    <li><small class="dropdown-header text-muted px-3">Custom BED settings configured in Settings</small></li>
                                     <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item" href="#" onclick="downloadCustomBed('data')" data-bs-toggle="tooltip" title="Uses global padding: {{ settings.data_padding }}bp">.data</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="downloadCustomBed('sambamba')" data-bs-toggle="tooltip" title="Uses global padding: {{ settings.sambamba_padding }}bp">.sambamba</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="downloadCustomBed('exome_depth')" data-bs-toggle="tooltip" title="Uses global padding: {{ settings.exomeDepth_padding }}bp">.exomeDepth</a></li>
-                                    <li><a class="dropdown-item" href="#" onclick="downloadCustomBed('cnv')" data-bs-toggle="tooltip" title="Uses global padding: {{ settings.cnv_padding }}bp">.cnv</a></li>
+                                    <li>
+                                        <a class="dropdown-item" href="#" onclick="downloadCustomBed('data')" data-bs-toggle="tooltip" 
+                                           title="Padding: {{ settings.data_padding }}bp
+                                           5' UTR: {{ 'Included' if settings.data_include_5utr else 'Excluded' }}
+                                           3' UTR: {{ 'Included' if settings.data_include_3utr else 'Excluded' }}">.data</a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="#" onclick="downloadCustomBed('sambamba')" data-bs-toggle="tooltip" 
+                                           title="Padding: {{ settings.sambamba_padding }}bp
+                                           5' UTR: {{ 'Included' if settings.sambamba_include_5utr else 'Excluded' }}
+                                           3' UTR: {{ 'Included' if settings.sambamba_include_3utr else 'Excluded' }}">.sambamba</a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="#" onclick="downloadCustomBed('exome_depth')" data-bs-toggle="tooltip" 
+                                           title="Padding: {{ settings.exomeDepth_padding }}bp
+                                           5' UTR: {{ 'Included' if settings.exomeDepth_include_5utr else 'Excluded' }}
+                                           3' UTR: {{ 'Included' if settings.exomeDepth_include_3utr else 'Excluded' }}">.exomeDepth</a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="#" onclick="downloadCustomBed('cnv')" data-bs-toggle="tooltip" 
+                                           title="Padding: {{ settings.cnv_padding }}bp
+                                           5' UTR: {{ 'Included' if settings.cnv_include_5utr else 'Excluded' }}
+                                           3' UTR: {{ 'Included' if settings.cnv_include_3utr else 'Excluded' }}">.cnv</a>
+                                    </li>
                                 </ul>
                             </div>
                         </div>
