@@ -341,28 +341,33 @@ def download_bed(bed_type):
         results = data['results']
         filename_prefix = data.get('filename_prefix', '')
         add_chr_prefix = data.get('add_chr_prefix', False)
-        include_5utr = data.get('include_5utr', False)
-        include_3utr = data.get('include_3utr', False)
         
-        # Process UTR settings first
-        adjusted_results = []
-        for result in results:
-            if not result.get('is_genomic_coordinate', False):
-                processed = process_tark_data(result, include_5utr, include_3utr)
-                if processed:
-                    adjusted_results.append(processed)
-            else:
-                adjusted_results.append(result)
-        
-        # Get settings from database for custom bed types
+        # Get settings from database
         settings = Settings.get_settings()
         settings_dict = settings.to_dict()
         
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         filename = f"{filename_prefix}_{timestamp}_{bed_type}.bed" if filename_prefix else f"{timestamp}_{bed_type}.bed"
         
-        # Use the adjusted results when generating the BED file
-        bed_content = generate_bed_file(bed_type, adjusted_results, filename_prefix, settings_dict, add_chr_prefix)
+        if bed_type == 'raw':
+            # For raw BED files, use the padding and UTR settings from the results page
+            include_5utr = data.get('include_5utr', False)
+            include_3utr = data.get('include_3utr', False)
+            
+            # Process UTR settings
+            adjusted_results = []
+            for result in results:
+                if not result.get('is_genomic_coordinate', False):
+                    processed = process_tark_data(result, include_5utr, include_3utr)
+                    if processed:
+                        adjusted_results.append(processed)
+                else:
+                    adjusted_results.append(result)
+            
+            bed_content = generate_bed_file(bed_type, adjusted_results, filename_prefix, settings_dict, add_chr_prefix)
+        else:
+            # For custom BED files, use the settings from the database only
+            bed_content = generate_bed_file(bed_type, results, filename_prefix, settings_dict, add_chr_prefix)
         
         return jsonify({'content': bed_content[0], 'filename': filename})
     except Exception as e:

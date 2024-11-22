@@ -12,6 +12,7 @@ let utrStates = {
 };
 let currentUTRState = 'none';
 let igvTracks = [];  // Store track references
+let originalResults = null;
 
 // Load settings when the page loads
 fetch('/bed_generator/settings')
@@ -25,6 +26,7 @@ fetch('/bed_generator/settings')
 document.addEventListener('DOMContentLoaded', function () {
     // Store initial state
     const initialResults = JSON.parse(document.getElementById('bedContent').value);
+    originalResults = JSON.parse(JSON.stringify(initialResults)); // Deep copy
     utrStates.none = initialResults;
     currentUTRState = 'none';
     
@@ -269,23 +271,15 @@ function downloadRawBed() {
 }
 
 function downloadCustomBed(bedType) {
-    const results = JSON.parse(document.getElementById('bedContent').value);
-    const filenamePrefix = document.getElementById('bedFileNamePrefix').value;
-    const addChrPrefix = document.getElementById('addChrPrefix').checked;
-    const include5UTR = document.getElementById('include5UTR').checked;
-    const include3UTR = document.getElementById('include3UTR').checked;
-
-    fetch(`/bed_generator/download_bed/${bedType}`, {
+    fetch('/bed_generator/download_bed/' + bedType, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            results: results,
-            filename_prefix: filenamePrefix,
-            add_chr_prefix: addChrPrefix,
-            include_5utr: include5UTR,
-            include_3utr: include3UTR
+            results: originalResults,  // Use original results instead of current table data
+            filename_prefix: document.getElementById('bedFileNamePrefix').value,
+            add_chr_prefix: document.getElementById('addChrPrefix').checked
         })
     })
     .then(response => response.json())
