@@ -15,6 +15,8 @@ Routes:
 - get_published_bed_files(): Retrieves a list of published BED files.
 - get_bed_files(): Retrieves a list of all BED files with their details.
 - adjust_utrs(): Adjusts UTRs for results based on user input.
+- download_raw_bed(): Generates and returns a raw BED file.
+- download_custom_bed(bed_type): Generates and returns a custom BED file.
 """
 
 from flask import render_template, request, jsonify, session, current_app, redirect, url_for, flash
@@ -334,8 +336,37 @@ def submit_for_review():
         current_app.logger.error(traceback.format_exc())
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@bed_generator_bp.route('/download_bed/<bed_type>', methods=['POST'])
-def download_bed(bed_type):
+@bed_generator_bp.route('/download_raw_bed', methods=['POST'])
+def download_raw_bed():
+    try:
+        data = request.json
+        results = data['results']
+        filename_prefix = data.get('filename_prefix', '')
+        add_chr_prefix = data.get('add_chr_prefix', False)
+        include_5utr = data.get('include_5utr', False)
+        include_3utr = data.get('include_3utr', False)
+        
+        # Process UTR settings from frontend
+        adjusted_results = []
+        for result in results:
+            if not result.get('is_genomic_coordinate', False):
+                processed = process_tark_data(result, include_5utr, include_3utr)
+                if processed:
+                    adjusted_results.append(processed)
+            else:
+                adjusted_results.append(result)
+        
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"{filename_prefix}_{timestamp}_raw.bed" if filename_prefix else f"{timestamp}_raw.bed"
+        
+        bed_content = BedGenerator.create_formatted_bed(adjusted_results, 'raw', 0, add_chr_prefix)
+        
+        return jsonify({'content': bed_content, 'filename': filename})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@bed_generator_bp.route('/download_custom_bed/<bed_type>', methods=['POST'])
+def download_custom_bed(bed_type):
     try:
         data = request.json
         results = data['results']
@@ -343,39 +374,42 @@ def download_bed(bed_type):
         add_chr_prefix = data.get('add_chr_prefix', False)
         
         # Get settings from database
-        settings = Settings.get_settings()
-        settings_dict = settings.to_dict()
-        
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"{filename_prefix}_{timestamp}_{bed_type}.bed" if filename_prefix else f"{timestamp}_{bed_type}.bed"
-        
-        if bed_type == 'raw':
-            # For raw BED files, use the padding and UTR settings from the results page
-            include_5utr = data.get('include_5utr', False)
-            include_3utr = data.get('include_3utr', False)
+        settings = Settings.query.first()
+        if not settings:
+            return jsonify({'error': 'Settings not found'}), 500
             
-            # Process UTR settings
-            adjusted_results = []
-            for result in results:
-                if not result.get('is_genomic_coordinate', False):
-                    processed = process_tark_data(result, include_5utr, include_3utr)
-                    if processed:
-                        adjusted_results.append(processed)
-                else:
-                    adjusted_results.append(result)
-            
-            bed_content = generate_bed_file(bed_type, adjusted_results, filename_prefix, settings_dict, add_chr_prefix)
-        else:
-            # For custom BED files, use the settings from the database only
-            bed_content = generate_bed_file(bed_type, results, filename_prefix, settings_dict, add_chr_prefix)
+        # Convert settings to dictionary with the correct format expected by generate_bed_file
+        settings_dict = {
+            'data_padding': getattr(settings, 'data_padding', 0),
+            'sambamba_padding': getattr(settings, 'sambamba_padding', 0),
+            'exomeDepth_padding': getattr(settings, 'exomeDepth_padding', 0),
+            'cnv_padding': getattr(settings, 'cnv_padding', 0),
+            'data_include_5utr': getattr(settings, 'data_include_5utr', False),
+            'data_include_3utr': getattr(settings, 'data_include_3utr', False),
+            'sambamba_include_5utr': getattr(settings, 'sambamba_include_5utr', False),
+            'sambamba_include_3utr': getattr(settings, 'sambamba_include_3utr', False),
+            'exomeDepth_include_5utr': getattr(settings, 'exomeDepth_include_5utr', False),
+            'exomeDepth_include_3utr': getattr(settings, 'exomeDepth_include_3utr', False),
+            'cnv_include_5utr': getattr(settings, 'cnv_include_5utr', False),
+            'cnv_include_3utr': getattr(settings, 'cnv_include_3utr', False)
+        }
         
-        return jsonify({'content': bed_content[0], 'filename': filename})
-    except Exception as e:
-        current_app.logger.error(f"Error generating {bed_type} BED file: {str(e)}")
+        # Generate BED file using database settings
+        bed_content, filename = generate_bed_file(
+            bed_type, 
+            results,
+            filename_prefix, 
+            settings_dict, 
+            add_chr_prefix
+        )
+        
         return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+            'content': bed_content,
+            'filename': filename
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error in download_custom_bed: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @bed_generator_bp.route('/get_published_bed_files')
 @login_required

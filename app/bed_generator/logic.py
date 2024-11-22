@@ -183,12 +183,35 @@ def generate_bed_file(bed_type: str, results: List[Dict[str, Any]], filename_pre
         padding = padding_map.get(bed_type.lower(), 0)
         include_5utr, include_3utr = utr_settings.get(bed_type.lower(), (False, False))
         
-        # Process results with UTR settings
+        # Process results with UTR settings using existing UTR data
         processed_results = []
         for result in results:
-            processed = process_tark_data(result.copy(), include_5utr, include_3utr)
-            if processed:
+            if result.get('is_genomic_coordinate', False):
+                processed_results.append(result.copy())
+                continue
+                
+            processed = result.copy()
+            if 'full_loc_start' in result and 'full_loc_end' in result:
+                # Start with full coordinates
+                new_start = result['full_loc_start']
+                new_end = result['full_loc_end']
+
+                if result.get('strand', 1) == 1:  # Positive strand
+                    if not include_5utr and result.get('five_prime_utr_end'):
+                        new_start = max(new_start, result['five_prime_utr_end'])
+                    if not include_3utr and result.get('three_prime_utr_start'):
+                        new_end = min(new_end, result['three_prime_utr_start'])
+                else:  # Negative strand
+                    if not include_5utr and result.get('five_prime_utr_end'):
+                        new_end = min(new_end, result['five_prime_utr_end'])
+                    if not include_3utr and result.get('three_prime_utr_start'):
+                        new_start = max(new_start, result['three_prime_utr_start'])
+                
+                processed['loc_start'] = new_start
+                processed['loc_end'] = new_end
                 processed['_padding'] = padding
+                processed_results.append(processed)
+            else:
                 processed_results.append(processed)
         
         bed_content = BedGenerator.create_formatted_bed(processed_results, bed_type.lower(), padding, add_chr_prefix)

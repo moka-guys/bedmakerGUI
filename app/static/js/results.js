@@ -239,57 +239,62 @@ function downloadRawBed() {
     const results = JSON.parse(document.getElementById('bedContent').value);
     const filenamePrefix = document.getElementById('bedFileNamePrefix').value;
     const addChrPrefix = document.getElementById('addChrPrefix').checked;
-    const include5UTR = document.getElementById('include5UTR').checked;
-    const include3UTR = document.getElementById('include3UTR').checked;
     
-    fetch('/bed_generator/download_bed/raw', {
+    // Create bed content directly from table data
+    const bedContent = results.map(r => {
+        const chrPrefix = addChrPrefix ? 'chr' : '';
+        return `${chrPrefix}${r.loc_region}\t${r.loc_start}\t${r.loc_end}\t${r.gene}`;
+    }).join('\n');
+    
+    // Download file
+    const timestamp = new Date().toISOString().slice(0,19).replace(/[-:]/g, '').replace('T', '_');
+    const filename = filenamePrefix ? 
+        `${filenamePrefix}_${timestamp}_raw.bed` : 
+        `${timestamp}_raw.bed`;
+        
+    const blob = new Blob([bedContent], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+}
+
+function downloadCustomBed(bedType) {
+    const results = JSON.parse(document.getElementById('bedContent').value);
+    const filenamePrefix = document.getElementById('bedFileNamePrefix').value;
+    const addChrPrefix = document.getElementById('addChrPrefix').checked;
+    
+    fetch('/bed_generator/download_custom_bed/' + bedType, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
         },
         body: JSON.stringify({
             results: results,
             filename_prefix: filenamePrefix,
-            add_chr_prefix: addChrPrefix,
-            padding_5: parseInt(document.getElementById('paddingInput5')?.value || 0),
-            padding_3: parseInt(document.getElementById('paddingInput3')?.value || 0),
-            use_separate_snp_padding: document.getElementById('separateSnpPadding')?.checked || false,
-            snp_padding_5: parseInt(document.getElementById('snpPadding5')?.value || 0),
-            snp_padding_3: parseInt(document.getElementById('snpPadding3')?.value || 0),
-            include_5utr: include5UTR,
-            include_3utr: include3UTR
+            add_chr_prefix: addChrPrefix
         })
     })
     .then(response => response.json())
     .then(data => {
-        if (data.error) {
-            alert(data.error);
-            return;
+        if (data.content) {
+            // Download file
+            const blob = new Blob([data.content], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = data.filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
         }
-        downloadFile(data.content, data.filename);
-    });
-}
-
-function downloadCustomBed(bedType) {
-    fetch('/bed_generator/download_bed/' + bedType, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            results: originalResults,  // Use original results instead of current table data
-            filename_prefix: document.getElementById('bedFileNamePrefix').value,
-            add_chr_prefix: document.getElementById('addChrPrefix').checked
-        })
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.error) {
-            alert(data.error);
-            return;
-        }
-        downloadFile(data.content, data.filename);
-    });
+    .catch(error => console.error('Error:', error));
 }
 
 function downloadBedFile(bedType, data) {
@@ -883,14 +888,22 @@ function toggleUTR() {
 }
 
 function downloadFile(content, filename) {
+    // Create a blob with the file content
     const blob = new Blob([content], { type: 'text/plain' });
+    
+    // Create a temporary URL for the blob
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.style.display = 'none';
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
+    
+    // Create a temporary link element
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    
+    // Append link to body, click it, and remove it
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Clean up by revoking the blob URL
     window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
 }
