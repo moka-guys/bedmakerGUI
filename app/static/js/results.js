@@ -221,7 +221,8 @@ function changeGenome() {
 
 function createBedContent(results) {
     return results.map(r => {
-        const chrPrefix = addChrPrefix ? 'chr' : '';
+        const chrValue = r.loc_region;
+        const chrPrefix = addChrPrefix && !chrValue.toLowerCase().startsWith('chr') ? 'chr' : '';
         return `${chrPrefix}${r.loc_region}\t${r.loc_start}\t${r.loc_end}\t${r.gene}`;
     }).join('\n');
 }
@@ -242,7 +243,9 @@ function downloadRawBed() {
     
     // Create bed content directly from table data
     const bedContent = results.map(r => {
-        const chrPrefix = addChrPrefix ? 'chr' : '';
+        // Only add chr prefix if it's not already there
+        const chrValue = r.loc_region;
+        const chrPrefix = addChrPrefix && !chrValue.toLowerCase().startsWith('chr') ? 'chr' : '';
         return `${chrPrefix}${r.loc_region}\t${r.loc_start}\t${r.loc_end}\t${r.gene}`;
     }).join('\n');
     
@@ -781,7 +784,9 @@ function updateIGV(results) {
 
     // Create bed features from results
     const bedFeatures = results.map(result => ({
-        chr: addChrPrefix ? 'chr' + result.loc_region : result.loc_region,
+        chr: addChrPrefix && !result.loc_region.startsWith('chr') ? 
+            'chr' + result.loc_region : 
+            result.loc_region,
         start: parseInt(result.loc_start),
         end: parseInt(result.loc_end),
         name: result.gene || 'Unknown',
