@@ -197,23 +197,23 @@ def fetch_data_from_tark(identifier: str, assembly: str) -> Optional[List[Dict]]
 def select_transcripts(data: List[Dict], assembly: str, version: Optional[str] = None) -> List[Dict]:
     """
     Selects the most relevant transcripts from the provided data based on the assembly and version.
-
-    Args:
-        data (List[Dict]): A list of transcript data dictionaries.
-        assembly (str): The genome assembly version ('GRCh38' or 'GRCh37').
-        version (Optional[str]): The specific version of the transcript to select, if provided.
-
-    Returns:
-        List[Dict]: A list of selected transcript dictionaries.
     """
     # Filters transcripts based on assembly and stable ID prefix (NM or NR).
     assembly_transcripts = [item for item in data if item['assembly'] == assembly and (item['stable_id'].startswith('NM') or item['stable_id'].startswith('NR'))]
     
+    # If version is specified, filter for exact version match
     if version:
-        # If a specific version is provided, filter for that version
-        version_transcripts = [t for t in assembly_transcripts if t['stable_id_version'] == version]
-        if version_transcripts:
-            return version_transcripts
+        versioned_transcripts = [t for t in assembly_transcripts if str(t['stable_id_version']) == version]
+        if versioned_transcripts:
+            selected = versioned_transcripts[0]
+            identifier = f"{selected['stable_id']}.{selected['stable_id_version']}"
+            selected['warning'] = {
+                'message': "Version specified by user",
+                'identifier': identifier,
+                'type': 'version_specified'
+            }
+            selected.pop('mane_transcript_type', None)
+            return [selected]
 
     if assembly == 'GRCh38':
         # Prioritises MANE transcripts if available for GRCh38.
@@ -524,3 +524,23 @@ def validate_coordinates(coordinates: str) -> Optional[str]:
         return "End position cannot be less than start position."
 
     return None
+
+def get_transcript_data(identifier: str) -> List[Dict]:
+    """Gets transcript data from Tark API."""
+    # Check if identifier includes a version
+    if '.' in identifier and any(identifier.startswith(prefix) for prefix in ['NM_', 'NR_']):
+        # Use the direct versioned transcript endpoint
+        url = f"{TARK_API_BASE}/transcript/stable_id_with_version/?stable_id_with_version={identifier}"
+        response = requests.get(url)
+        if response.ok:
+            data = response.json()
+            # The versioned endpoint returns a single transcript, but we'll keep the list format
+            # for consistency with the rest of the code
+            return [data] if data else []
+    
+    # For non-versioned identifiers, use the existing endpoint
+    url = f"{TARK_API_BASE}/transcript/stable_id/{identifier}/"
+    response = requests.get(url)
+    if response.ok:
+        return response.json()
+    return []

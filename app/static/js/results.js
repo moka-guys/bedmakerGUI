@@ -83,7 +83,7 @@ function loadIGV() {
                 name: "Custom BED",
                 type: "annotation",
                 format: "bed",
-                color: "darkgreen", // Changed color to dark purple
+                color: "darkgreen",
                 features: bedContent.split('\n').map(line => {
                     var parts = line.split('\t');
                     return {
@@ -746,7 +746,7 @@ function updateTable(results) {
             <td>${result.loc_start}</td>
             <td>${result.loc_end}</td>
             <td>${result.entrez_id}</td>
-            <td>${result.gene}</td>
+            <td style="background-color: #d4edda;">${result.gene}</td>
             <td>${result.accession}</td>
             <td>${result.exon_id}</td>
             <td>${result.exon_number}</td>

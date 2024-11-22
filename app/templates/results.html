@@ -91,7 +91,11 @@
                                         <td>{{ result.mane_transcript_type }}</td>
                                         <td>
                                             {% if result.warning %}
-                                                {% if result.warning.message and "best available GRCh38 MANE transcript match" in result.warning.message %}
+                                                {% if result.warning.type == 'version_specified' %}
+                                                    <span class="badge bg-success text-white">
+                                                        <i class="fas fa-check"></i> {{ result.warning.message }}
+                                                    </span>
+                                                {% elif result.warning.message and "best available GRCh38 MANE transcript match" in result.warning.message %}
                                                     <span class="badge bg-info text-white">
                                                         <i class="fas fa-info-circle"></i> GRCh38 MANE SELECT equivalent
                                                     </span>
@@ -156,18 +160,15 @@
                                 <small style="font-size: 0.8em; color: #6c757d;">Show padding options</small>
                             </label>
                         </div>
-                        <div class="form-check form-check-inline mb-0">
-                            <input class="form-check-input" type="checkbox" id="addChrPrefix" onchange="toggleChrPrefix()">
-                            <label class="form-check-label text-muted" for="addChrPrefix">
-                                <small style="font-size: 0.8em; color: #6c757d;">Add 'chr' prefix</small>
-                            </label>
-                        </div>
                         <div class="btn-group" role="group" aria-label="UTR controls">
                             <input type="checkbox" class="btn-check" id="include5UTR" autocomplete="off" onchange="toggleUTR('5')">
                             <label class="btn btn-outline-secondary btn-sm" for="include5UTR">5' UTR</label>
 
                             <input type="checkbox" class="btn-check" id="include3UTR" autocomplete="off" onchange="toggleUTR('3')">
                             <label class="btn btn-outline-secondary btn-sm" for="include3UTR">3' UTR</label>
+
+                            <input type="checkbox" class="btn-check" id="addChrPrefix" autocomplete="off" onchange="toggleChrPrefix()">
+                            <label class="btn btn-outline-secondary btn-sm" for="addChrPrefix">chr</label>
                         </div>
                     </div>
                 </div>
