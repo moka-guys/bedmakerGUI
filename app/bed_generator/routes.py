@@ -35,7 +35,39 @@ import json
 from datetime import datetime 
 from app import db
 import re
+import requests
 
+def fetch_panels_from_panelapp():
+    """
+    Fetches panel data from PanelApp API.
+    Returns a list of panels with their details.
+    """
+    try:
+        # PanelApp API base URL
+        base_url = "https://panelapp.genomicsengland.co.uk/api/v1"
+        
+        # Get all panels
+        response = requests.get(f"{base_url}/panels")
+        response.raise_for_status()
+        
+        panels_data = response.json()
+        
+        # Extract relevant panel information
+        panels = []
+        for panel in panels_data.get('results', []):
+            panels.append({
+                'id': panel.get('id'),
+                'name': panel.get('name'),
+                'full_name': panel.get('name'),
+                'disease_group': panel.get('disease_group', ''),
+                'disease_sub_group': panel.get('disease_sub_group', '')
+            })
+        
+        return panels
+        
+    except requests.RequestException as e:
+        current_app.logger.error(f"Error fetching panels from PanelApp: {str(e)}")
+        raise Exception(f"Failed to fetch panels: {str(e)}")
 
 @bed_generator_bp.route('/', methods=['GET', 'POST'])
 def index():
@@ -197,21 +229,19 @@ def panels():
 @bed_generator_bp.route('/refresh_panels')
 def refresh_panels():
     """
-    Fetches and updates the panel data from an external source.
-    
-    Retrieves panel data from PanelApp, stores it in a JSON file, and returns the updated data.
+    Endpoint to refresh panel data from PanelApp.
     """
     try:
-        print("Starting panel refresh")
-        panel_data = fetch_panels_from_panelapp()
-        print(f"Fetched {len(panel_data)} panels")
-        store_panels_in_json(panel_data)
-        print("Stored panels in JSON")
-        panels, last_updated = get_panels_from_json()
-        return jsonify({'panels': panels, 'last_updated': last_updated})
+        panels = fetch_panels_from_panelapp()
+        return jsonify({
+            'panels': panels,
+            'last_updated': datetime.now().isoformat()
+        })
     except Exception as e:
-        print(f"Error in refresh_panels: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        current_app.logger.error(f"Error in refresh_panels: {str(e)}")
+        return jsonify({
+            'error': str(e)
+        }), 500
 
 @bed_generator_bp.route('/get_genes_by_panel/<panel_id>')
 def get_genes_by_panel(panel_id):
@@ -473,3 +503,14 @@ def adjust_utrs():
             'success': False,
             'error': str(e)
         }), 500
+
+def get_mane_plus_clinical_identifiers(results):
+    """Helper function to identify MANE Plus Clinical transcripts."""
+    mane_plus_clinical = set()
+    for result in results:
+        # Check both the mane_transcript_type field and any potential string variations
+        mane_type = result.get('mane_transcript_type', '')
+        if isinstance(mane_type, str) and ('PLUS CLINICAL' in mane_type.upper() or 
+            'MANE Plus Clinical' in mane_type):
+            mane_plus_clinical.add(result.get('gene', ''))
+    return mane_plus_clinical

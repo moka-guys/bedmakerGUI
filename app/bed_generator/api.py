@@ -160,7 +160,7 @@ def fetch_data_from_tark(identifier: str, assembly: str) -> Optional[List[Dict]]
     search_url = f"{TARK_API_URL}transcript/search/"
     params = {
         'identifier_field': base_accession,
-        'expand': 'transcript_release_set,genes,exons',
+        'expand': 'exons,genes',
         'assembly_name': 'GRCh38' if assembly == 'GRCh38' else 'GRCh37'
     }
 
@@ -273,11 +273,29 @@ def process_transcripts(transcripts: List[Dict], identifier: str) -> List[Dict]:
         if not transcript:
             continue
 
+        # Extract MANE transcript information correctly
+        mane_transcript_type = transcript.get('mane_transcript_type', '')
+        
+        # Ensure MANE Plus Clinical is properly captured
+        if isinstance(mane_transcript_type, str) and 'PLUS CLINICAL' in mane_transcript_type.upper():
+            mane_transcript_type = 'MANE Plus Clinical'
+        elif isinstance(mane_transcript_type, str) and 'SELECT' in mane_transcript_type.upper():
+            mane_transcript_type = 'MANE Select'
+
         # Constructs the accession number and extracts gene information.
         accession = f"{transcript['stable_id']}.{transcript['stable_id_version']}"
-        entrez_id = transcript['genes'][0]['stable_id'] if 'genes' in transcript and transcript['genes'] else None
+        
+        # Get the Ensembl transcript ID using the correct field
+        ensembl_id = transcript.get('ensembl_stable_id')  # Changed from 'ensembl_id' to 'ensembl_stable_id'
+        
+        # Get the gene's stable ID (Entrez ID) from the first gene in the genes array
+        entrez_id = None
+        if 'genes' in transcript and transcript['genes']:
+            gene = transcript['genes'][0]
+            entrez_id = gene.get('stable_id') or gene.get('hgnc_id')
+        
         gene_name = next((gene['name'] for gene in transcript.get('genes', []) if gene['name']), identifier)
-        warning = transcript.get('warning', '')  # Get the warning if present
+        warning = transcript.get('warning', '')
         
         # Iterates over exons to build a detailed list of transcript information.
         for index, exon in enumerate(transcript.get('exons', []), start=1):
@@ -287,13 +305,14 @@ def process_transcripts(transcripts: List[Dict], identifier: str) -> List[Dict]:
                 'loc_end': exon['loc_end'],
                 'loc_strand': exon['loc_strand'],
                 'accession': accession,
+                'ensembl_id': ensembl_id,  # Added to the results dictionary
                 'gene': gene_name,
                 'entrez_id': entrez_id,
                 'exon_id': exon['stable_id'],
                 'exon_number': index,
                 'transcript_biotype': transcript.get('biotype', ''),
                 'mane_transcript': transcript.get('mane_transcript', ''),
-                'mane_transcript_type': transcript.get('mane_transcript_type', ''),
+                'mane_transcript_type': mane_transcript_type,
                 'warning': warning,
                 'identifier': identifier,
                 'five_prime_utr': {
@@ -321,7 +340,7 @@ def fetch_data_from_tark_with_hg38(hg38_identifier: str, warning: Optional[Dict]
     search_url = f"{TARK_API_URL}transcript/search/"
     params = {
         'identifier_field': hg38_identifier,
-        'expand': 'transcript_release_set,genes,exons'
+        'expand': 'exons,genes'
     }
 
     data = ApiClient.get_tark_data(search_url, params)

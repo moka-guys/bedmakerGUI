@@ -13,6 +13,7 @@ let utrStates = {
 let currentUTRState = 'none';
 let igvTracks = [];  // Store track references
 let originalResults = null;
+let manePlusSelections = new Map();
 
 // Load settings when the page loads
 fetch('/bed_generator/settings')
@@ -26,14 +27,13 @@ fetch('/bed_generator/settings')
 document.addEventListener('DOMContentLoaded', function () {
     // Store initial state WITHOUT filtering
     const initialResults = JSON.parse(document.getElementById('bedContent').value);
+    originalResults = initialResults;
     
-    // Store complete results without filtering
-    originalResults = JSON.parse(JSON.stringify(initialResults)); // Deep copy of complete results
-    utrStates.none = initialResults;
-    currentUTRState = 'none';
-    
-    // Update the table with initial display (which will apply filtering)
-    updateTable(initialResults);
+    // Check for MANE Plus Clinical transcripts
+    if (!handleManePlusTranscripts(initialResults)) {
+        // Only update table if no MANE Plus Clinical transcripts found
+        updateTable(initialResults);
+    }
     
     loadIGV();
 
@@ -89,13 +89,16 @@ function loadIGV() {
                 type: "annotation",
                 format: "bed",
                 color: "darkgreen",
-                features: bedContent.split('\n').map(line => {
-                    var parts = line.split('\t');
+                features: results.map(result => {
                     return {
-                        chr: parts[0],
-                        start: parseInt(parts[1]),
-                        end: parseInt(parts[2]),
-                        name: parts[3] || ''
+                        chr: addChrPrefix && !result.loc_region.startsWith('chr') ? 
+                            'chr' + result.loc_region : 
+                            result.loc_region,
+                        start: parseInt(result.loc_start),
+                        end: parseInt(result.loc_end),
+                        name: result.gene || '',
+                        score: 1000,
+                        strand: result.strand === -1 ? '-' : '+'
                     };
                 }),
                 displayMode: "EXPANDED"
@@ -734,15 +737,9 @@ function handleBedFileUpload(event) {
 
 // Combine updateTable and refreshTable into a single function
 function updateTable(results) {
-    // Store initial state if not already stored
-    if (!utrStates.none) {
-        utrStates.none = results;
-    }
-    
     const tableBody = document.querySelector('.table tbody');
-    tableBody.innerHTML = ''; // Clear existing rows
+    tableBody.innerHTML = '';
 
-    // Filter out invalid entries where start > end
     const validResults = results.filter(result => 
         parseInt(result.loc_start) <= parseInt(result.loc_end)
     );
@@ -762,31 +759,47 @@ function updateTable(results) {
             <td>${result.exon_number}</td>
             <td>${result.transcript_biotype}</td>
             <td>${result.mane_transcript}</td>
-            <td>${result.mane_transcript_type}</td>
             <td>
-                ${result.warning ? 
-                    result.warning.message && result.warning.message.includes("best available GRCh38 MANE transcript match") ?
-                        `<span class="badge bg-info text-white">
-                            <i class="fas fa-info-circle"></i> GRCh38 MANE SELECT equivalent
-                        </span>` :
-                        `<span class="badge bg-warning text-dark">
-                            <i class="fas fa-exclamation-triangle"></i> 
-                            ${result.warning.message || result.warning}
-                        </span>`
-                    :
-                    `<span class="badge bg-success text-white">
-                        <i class="fas fa-check"></i> Transcript verified
-                    </span>`
-                }
+                ${getMANEStatusBadge(result)}
             </td>
         `;
         
         tableBody.appendChild(row);
     });
 
-    // Update the hidden input with the filtered results
     document.getElementById('bedContent').value = JSON.stringify(validResults);
-    currentResults = validResults; // Update the global currentResults variable
+    currentResults = validResults;
+}
+
+// New helper function to generate MANE status badge
+function getMANEStatusBadge(result) {
+    if (result.warning) {
+        if (result.warning.type === 'version_specified') {
+            return `<span class="badge bg-success text-white">
+                <i class="fas fa-check"></i> ${result.warning.message}
+            </span>`;
+        } else if (result.warning.message && result.warning.message.includes("best available GRCh38 MANE transcript match")) {
+            return `<span class="badge bg-info text-white">
+                <i class="fas fa-info-circle"></i> GRCh38 MANE SELECT equivalent
+            </span>`;
+        } else {
+            return `<span class="badge bg-warning text-dark">
+                <i class="fas fa-exclamation-triangle"></i> 
+                ${result.warning.message || result.warning}
+            </span>`;
+        }
+    } else {
+        const maneType = result.mane_transcript_type;
+        if (maneType === 'MANE Plus Clinical') {
+            return `<span class="badge bg-primary text-white">
+                <i class="fas fa-plus-circle"></i> MANE Plus Clinical
+            </span>`;
+        } else {
+            return `<span class="badge bg-success text-white">
+                <i class="fas fa-check"></i> MANE Select
+            </span>`;
+        }
+    }
 }
 
 function updateIGV(results) {
@@ -831,11 +844,21 @@ function toggleUTR() {
     const include5 = document.getElementById('include5UTR').checked;
     const include3 = document.getElementById('include3UTR').checked;
     
-    // Get complete original results
-    let results = JSON.parse(JSON.stringify(originalResults));
+    if (!originalResults) {
+        console.error('Original results not found');
+        return;
+    }
+    
+    // First, filter originalResults based on MANE selections
+    const filteredResults = originalResults.filter(result => {
+        const selection = manePlusSelections.get(result.gene);
+        return !selection || 
+            (selection === 'mane_select' && result.mane_transcript_type === 'MANE Select') ||
+            (selection === 'mane_plus' && result.mane_transcript_type === 'MANE Plus Clinical');
+    });
     
     // Process each result
-    const adjustedResults = results.map(result => {
+    const adjustedResults = filteredResults.map(result => {
         // Skip if it's a genomic coordinate or has no UTR data
         if (!result.full_loc_start || result.is_genomic_coordinate) {
             return result;
@@ -921,4 +944,210 @@ function downloadFile(content, filename) {
     
     // Clean up by revoking the blob URL
     window.URL.revokeObjectURL(url);
+}
+
+function handleManePlusTranscripts(results) {
+    const manePlusGenes = new Map();
+    
+    // First pass: Group transcripts by gene
+    results.forEach(result => {
+        if (result.mane_transcript_type === 'MANE Plus Clinical' || 
+            result.mane_transcript_type === 'MANE Select') {
+            if (!manePlusGenes.has(result.gene)) {
+                manePlusGenes.set(result.gene, []);
+            }
+            manePlusGenes.get(result.gene).push(result);
+        }
+    });
+
+    // Second pass: Filter to only keep genes that have both transcript types
+    for (const [gene, transcripts] of manePlusGenes.entries()) {
+        const hasManePlus = transcripts.some(t => t.mane_transcript_type === 'MANE Plus Clinical');
+        const hasManeSelect = transcripts.some(t => t.mane_transcript_type === 'MANE Select');
+        
+        if (!hasManePlus || !hasManeSelect) {
+            manePlusGenes.delete(gene);
+        }
+    }
+
+    // If we have any genes with both transcript types, show the selection modal
+    if (manePlusGenes.size > 0) {
+        showTranscriptSelectionModal(manePlusGenes);
+        return true;
+    }
+    return false;
+}
+
+function showTranscriptSelectionModal(geneTranscripts) {
+    const optionsContainer = document.getElementById('transcriptOptions');
+    optionsContainer.innerHTML = '';
+
+    geneTranscripts.forEach((transcripts, gene) => {
+        const geneDiv = document.createElement('div');
+        geneDiv.className = 'mb-3';
+        geneDiv.innerHTML = `
+            <h6 class="mb-2">${gene}</h6>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="transcript_${gene}" 
+                       value="mane_select" id="mane_select_${gene}" checked>
+                <label class="form-check-label" for="mane_select_${gene}">
+                    MANE Select (${transcripts.find(t => t.mane_transcript_type === 'MANE Select')?.accession})
+                </label>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="transcript_${gene}" 
+                       value="mane_plus" id="mane_plus_${gene}">
+                <label class="form-check-label" for="mane_plus_${gene}">
+                    MANE Plus Clinical (${transcripts.find(t => t.mane_transcript_type === 'MANE Plus Clinical')?.accession})
+                </label>
+            </div>
+        `;
+        optionsContainer.appendChild(geneDiv);
+    });
+
+    const modal = new bootstrap.Modal(document.getElementById('maneSelectionModal'));
+    modal.show();
+}
+
+function applyTranscriptSelection() {
+    const results = JSON.parse(document.getElementById('bedContent').value);
+    const filteredResults = [];
+    
+    // Get all the selections
+    document.querySelectorAll('[id^="mane_select_"]').forEach(radio => {
+        const gene = radio.id.replace('mane_select_', '');
+        const selection = document.querySelector(`input[name="transcript_${gene}"]:checked`).value;
+        manePlusSelections.set(gene, selection);
+    });
+
+    // Filter results based on selections
+    results.forEach(result => {
+        const selection = manePlusSelections.get(result.gene);
+        if (!selection || 
+            (selection === 'mane_select' && result.mane_transcript_type === 'MANE Select') ||
+            (selection === 'mane_plus' && result.mane_transcript_type === 'MANE Plus Clinical')) {
+            filteredResults.push(result);
+        }
+    });
+
+    // Update the table and IGV
+    document.getElementById('bedContent').value = JSON.stringify(filteredResults);
+    updateTable(filteredResults);
+    refreshIGV();
+
+    // Close the modal
+    bootstrap.Modal.getInstance(document.getElementById('maneSelectionModal')).hide();
+}
+
+function showBedFlowDiagram() {
+    const modalHtml = `
+        <div class="modal fade" id="bedFlowModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-light">
+                        <h5 class="modal-title">
+                            <i class="fas fa-project-diagram me-2"></i>BED File Generation Flow
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="text-center mb-4">
+                            <img src="/static/images/bed_flow_diagram.png" alt="BED File Flow Diagram" class="img-fluid rounded shadow-sm">
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-info-circle me-2"></i>How it works
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="timeline">
+                                    <div class="timeline-item mb-3 d-flex">
+                                        <div class="timeline-marker me-3">
+                                            <span class="badge rounded-pill bg-primary">1</span>
+                                        </div>
+                                        <div class="timeline-content">
+                                            <p class="mb-0">A base BED file is generated from your user input query</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="timeline-item mb-3 d-flex">
+                                        <div class="timeline-marker me-3">
+                                            <span class="badge rounded-pill bg-primary">2</span>
+                                        </div>
+                                        <div class="timeline-content">
+                                            <p class="mb-0">The Base BED download can be modified, and uses your current screen adjustments</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="timeline-item mb-3 d-flex">
+                                        <div class="timeline-marker me-3">
+                                            <span class="badge rounded-pill bg-primary">3</span>
+                                        </div>
+                                        <div class="timeline-content">
+                                            <p class="mb-0">Custom BED profiles use separate settings configured in Settings. These profiles are not affected by padding adjustments made in this screen.</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="timeline-item d-flex">
+                                        <div class="timeline-marker me-3">
+                                            <span class="badge rounded-pill bg-primary">4</span>
+                                        </div>
+                                        <div class="timeline-content">
+                                            <p class="mb-0">Therefore, when submitting BED files for review, only the Base BED file is required. This is stored and used to generate secondary BED profiles as needed.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <style>
+            .timeline-marker {
+                min-width: 40px;
+                text-align: center;
+            }
+            
+            .timeline-item {
+                position: relative;
+            }
+            
+            .timeline-item:not(:last-child):before {
+                content: '';
+                position: absolute;
+                left: 19px;
+                top: 30px;
+                height: calc(100% + 15px);
+                width: 2px;
+                background-color: #e9ecef;
+            }
+            
+            .modal-lg {
+                max-width: 800px;
+            }
+            
+            .badge.rounded-pill {
+                width: 25px;
+                height: 25px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+        </style>`;
+    
+    // Add modal to document if it doesn't exist
+    if (!document.getElementById('bedFlowModal')) {
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('bedFlowModal'));
+    modal.show();
 }
