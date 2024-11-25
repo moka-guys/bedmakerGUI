@@ -754,16 +754,14 @@ function updateTable(results) {
         const row = document.createElement('tr');
         row.onclick = function() { setActiveRow(this, index); };
         
-        // Determine the status display
+        // Format status display
         let statusDisplay = '';
         if (result.is_snp) {
-            statusDisplay = `<span class="badge bg-info text-white"><i class="fas fa-dna"></i> SNP</span>`;
-        } else if (result.warning && result.warning.type === 'transcript_selection') {
-            statusDisplay = `<span class="badge bg-warning text-dark">
-                <i class="fas fa-user-edit"></i> Manual transcript selection by user
-            </span>`;
-        } else if (result.mane_transcript_type) {
-            statusDisplay = result.mane_transcript_type;
+            statusDisplay = '<span class="badge bg-info text-white"><i class="fas fa-dna"></i> SNP</span>';
+        } else if (result.status) {
+            // Apply appropriate styling based on status type
+            const statusClass = result.status.includes('MANE') ? 'bg-success' : 'bg-info';
+            statusDisplay = `<span class="badge ${statusClass} text-white">${result.status}</span>`;
         }
         
         row.innerHTML = `

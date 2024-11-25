@@ -156,6 +156,7 @@ def fetch_data_from_tark(identifier: str, assembly: str) -> Optional[List[Dict]]
     """
     base_accession = identifier.split('.')[0]
     version = identifier.split('.')[1] if '.' in identifier else None
+    user_specified_version = '.' in identifier  # Add this flag
 
     search_url = f"{TARK_API_URL}transcript/search/"
     params = {
@@ -174,6 +175,14 @@ def fetch_data_from_tark(identifier: str, assembly: str) -> Optional[List[Dict]]
                            str(t['stable_id_version']) == version and
                            t['assembly'] == params['assembly_name']]
             if exact_matches:
+                # Only add warning if user specified the version
+                if user_specified_version:
+                    for match in exact_matches:
+                        match['warning'] = {
+                            'type': 'version_specified',
+                            'message': 'Version specified by user',
+                            'identifier': identifier
+                        }
                 return process_transcripts(exact_matches, identifier)
 
     # If no exact match found or no version specified, proceed with base accession search
@@ -220,11 +229,13 @@ def select_transcripts(data: List[Dict], assembly: str, version: Optional[str] =
         if versioned_transcripts:
             selected = versioned_transcripts[0]
             identifier = f"{selected['stable_id']}.{selected['stable_id_version']}"
-            selected['warning'] = {
-                'message': "Version specified by user",
-                'identifier': identifier,
-                'type': 'version_specified'
-            }
+            # Only add warning if this is a user-specified version
+            if '.' in identifier:  # This indicates user specified a version
+                selected['warning'] = {
+                    'message': "Version specified by user",
+                    'identifier': identifier,
+                    'type': 'version_specified'
+                }
             selected.pop('mane_transcript_type', None)
             return [selected]
 
@@ -271,62 +282,39 @@ def select_transcripts(data: List[Dict], assembly: str, version: Optional[str] =
     return []
 
 def process_transcripts(transcripts: List[Dict], identifier: str) -> List[Dict]:
-    """
-    Processes transcript data to extract relevant information.
-
-    Args:
-        transcripts (List[Dict]): A list of transcript data dictionaries.
-        identifier (str): The identifier for the transcript.
-
-    Returns:
-        List[Dict]: A list of dictionaries containing processed transcript information.
-    """
     results = []
     for transcript in transcripts:
         if not transcript:
             continue
 
-        # Extract MANE transcript information correctly
-        mane_transcript_type = transcript.get('mane_transcript_type', '')
-        
-        # Ensure MANE Plus Clinical is properly captured
-        if isinstance(mane_transcript_type, str) and 'PLUS CLINICAL' in mane_transcript_type.upper():
-            mane_transcript_type = 'MANE Plus Clinical'
-        elif isinstance(mane_transcript_type, str) and 'SELECT' in mane_transcript_type.upper():
-            mane_transcript_type = 'MANE Select'
+        # Determine the status message
+        status = None
+        if transcript.get('mane_transcript_type'):
+            # Standardize MANE status format
+            if 'PLUS CLINICAL' in transcript['mane_transcript_type'].upper():
+                status = 'MANE Plus Clinical'
+            elif 'SELECT' in transcript['mane_transcript_type'].upper():
+                status = 'MANE Select'
+        elif transcript.get('warning'):
+            # Use warning message as status if no MANE type
+            status = transcript['warning'].get('message')
 
-        # Constructs the accession number and extracts gene information.
-        accession = f"{transcript['stable_id']}.{transcript['stable_id_version']}"
-        
-        # Get the Ensembl transcript ID using the correct field
-        ensembl_id = transcript.get('ensembl_stable_id')  # Changed from 'ensembl_id' to 'ensembl_stable_id'
-        
-        # Get the gene's stable ID (Entrez ID) from the first gene in the genes array
-        entrez_id = None
-        if 'genes' in transcript and transcript['genes']:
-            gene = transcript['genes'][0]
-            entrez_id = gene.get('stable_id') or gene.get('hgnc_id')
-        
-        gene_name = next((gene['name'] for gene in transcript.get('genes', []) if gene['name']), identifier)
-        warning = transcript.get('warning', '')
-        
-        # Iterates over exons to build a detailed list of transcript information.
+        # Build the result dictionary
         for index, exon in enumerate(transcript.get('exons', []), start=1):
             results.append({
                 'loc_region': exon['loc_region'],
                 'loc_start': exon['loc_start'],
                 'loc_end': exon['loc_end'],
                 'loc_strand': exon['loc_strand'],
-                'accession': accession,
-                'ensembl_id': ensembl_id,  # Added to the results dictionary
-                'gene': gene_name,
-                'entrez_id': entrez_id,
+                'accession': f"{transcript['stable_id']}.{transcript['stable_id_version']}",
+                'ensembl_id': transcript.get('ensembl_stable_id'),
+                'gene': next((gene['name'] for gene in transcript.get('genes', []) if gene['name']), identifier),
+                'entrez_id': None,
                 'exon_id': exon['stable_id'],
                 'exon_number': index,
                 'transcript_biotype': transcript.get('biotype', ''),
                 'mane_transcript': transcript.get('mane_transcript', ''),
-                'mane_transcript_type': mane_transcript_type,
-                'warning': warning,
+                'status': status,
                 'identifier': identifier,
                 'five_prime_utr': {
                     'start': transcript.get('five_prime_utr_start'),
@@ -337,6 +325,7 @@ def process_transcripts(transcripts: List[Dict], identifier: str) -> List[Dict]:
                     'end': transcript.get('three_prime_utr_end')
                 }
             })
+
     return results
 
 def fetch_data_from_tark_with_hg38(hg38_identifier: str, warning: Optional[Dict] = None) -> Optional[List[Dict]]:

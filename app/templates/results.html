@@ -93,7 +93,7 @@
                                                     <span class="badge bg-success text-white">
                                                         <i class="fas fa-check"></i> {{ result.warning.message }}
                                                     </span>
-                                                {% elif result.warning.message and "best available GRCh38 MANE transcript match" in result.warning.message %}
+                                                {% elif result.warning.type == 'transcript_selection' %}
                                                     <span class="badge bg-info text-white">
                                                         <i class="fas fa-info-circle"></i> GRCh38 MANE SELECT equivalent
                                                     </span>
