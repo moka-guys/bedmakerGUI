@@ -130,7 +130,13 @@ function applyPadding() {
     const useSeparateSnpPadding = document.getElementById('separateSnpPadding').checked;
     const snpPadding5 = useSeparateSnpPadding ? (parseInt(document.getElementById('snpPadding5').value) || 0) : padding5;
     const snpPadding3 = useSeparateSnpPadding ? (parseInt(document.getElementById('snpPadding3').value) || 0) : padding3;
-    const results = JSON.parse(document.getElementById('bedContent').value);
+    
+    // Get the original results from the data attribute, falling back to current content if not available
+    const bedContentElement = document.getElementById('bedContent');
+    const originalResults = JSON.parse(
+        bedContentElement.getAttribute('data-original-results') || 
+        bedContentElement.value
+    );
 
     fetch('/bed_generator/adjust_padding', {
         method: 'POST',
@@ -140,17 +146,19 @@ function applyPadding() {
         body: JSON.stringify({
             padding_5: padding5,
             padding_3: padding3,
+            use_separate_snp_padding: useSeparateSnpPadding,
             snp_padding_5: snpPadding5,
             snp_padding_3: snpPadding3,
-            use_separate_snp_padding: useSeparateSnpPadding,
-            results: results
+            include_5utr: document.getElementById('include5UTR').checked,
+            include_3utr: document.getElementById('include3UTR').checked,
+            results: originalResults
         }),
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
             updateTable(data.results);
-            document.getElementById('bedContent').value = JSON.stringify(data.results);
+            bedContentElement.value = JSON.stringify(data.results);
             refreshIGV();
         } else {
             console.error('Error applying padding:', data.error);
@@ -1150,4 +1158,20 @@ function showBedFlowDiagram() {
     // Show the modal
     const modal = new bootstrap.Modal(document.getElementById('bedFlowModal'));
     modal.show();
+}
+
+// Add this function to store the original results when they're first loaded
+function storeOriginalResults(results) {
+    // Store as a data attribute on the bedContent element
+    document.getElementById('bedContent').setAttribute('data-original-results', JSON.stringify(results));
+}
+
+function updateResults(results) {
+    // Store the original results first
+    storeOriginalResults(results);
+    
+    // Update the table and other UI elements as before
+    updateTable(results);
+    document.getElementById('bedContent').value = JSON.stringify(results);
+    refreshIGV();
 }
