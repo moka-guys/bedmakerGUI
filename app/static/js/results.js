@@ -131,12 +131,9 @@ function applyPadding() {
     const snpPadding5 = useSeparateSnpPadding ? (parseInt(document.getElementById('snpPadding5').value) || 0) : padding5;
     const snpPadding3 = useSeparateSnpPadding ? (parseInt(document.getElementById('snpPadding3').value) || 0) : padding3;
     
-    // Get the original results from the data attribute, falling back to current content if not available
+    // Get the current state of results (includes UTR changes)
     const bedContentElement = document.getElementById('bedContent');
-    const originalResults = JSON.parse(
-        bedContentElement.getAttribute('data-original-results') || 
-        bedContentElement.value
-    );
+    const currentResults = JSON.parse(bedContentElement.value);
 
     fetch('/bed_generator/adjust_padding', {
         method: 'POST',
@@ -151,7 +148,8 @@ function applyPadding() {
             snp_padding_3: snpPadding3,
             include_5utr: document.getElementById('include5UTR').checked,
             include_3utr: document.getElementById('include3UTR').checked,
-            results: originalResults
+            results: currentResults,  // Use current state instead of original
+            is_padding_update: true   // New flag to indicate this is a padding update
         }),
     })
     .then(response => response.json())

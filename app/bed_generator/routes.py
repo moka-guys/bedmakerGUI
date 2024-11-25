@@ -172,6 +172,7 @@ def adjust_padding():
     snp_padding_5 = int(data.get('snp_padding_5', padding_5))
     snp_padding_3 = int(data.get('snp_padding_3', padding_3))
     results = data.get('results', [])
+    is_padding_update = data.get('is_padding_update', False)
 
     adjusted_results = []
     for result in results:
@@ -193,22 +194,33 @@ def adjust_padding():
         # Get strand information (default to forward/1 if not specified)
         strand = result.get('strand', 1)
         
-        # Determine which padding values to use
-        if is_snp and use_separate_snp_padding:
-            pad_5 = snp_padding_5
-            pad_3 = snp_padding_3
-        else:
-            pad_5 = padding_5
-            pad_3 = padding_3
-
-        # Apply padding based on strand direction
-        if strand > 0:  # Forward strand
-            adjusted['loc_start'] = result['loc_start'] - pad_5
-            adjusted['loc_end'] = result['loc_end'] + pad_3
-        else:  # Reverse strand
-            adjusted['loc_start'] = result['loc_start'] - pad_3
-            adjusted['loc_end'] = result['loc_end'] + pad_5
+        # If this is a padding update, we need to use the original coordinates
+        if is_padding_update:
+            # Get original coordinates (before any padding)
+            original_start = result.get('original_start', result['loc_start'])
+            original_end = result.get('original_end', result['loc_end'])
             
+            # Store original coordinates if not already stored
+            if 'original_start' not in adjusted:
+                adjusted['original_start'] = original_start
+                adjusted['original_end'] = original_end
+            
+            # Determine which padding values to use
+            if is_snp and use_separate_snp_padding:
+                pad_5 = snp_padding_5
+                pad_3 = snp_padding_3
+            else:
+                pad_5 = padding_5
+                pad_3 = padding_3
+
+            # Apply padding based on strand direction
+            if strand > 0:  # Forward strand
+                adjusted['loc_start'] = original_start - pad_5
+                adjusted['loc_end'] = original_end + pad_3
+            else:  # Reverse strand
+                adjusted['loc_start'] = original_start - pad_3
+                adjusted['loc_end'] = original_end + pad_5
+        
         adjusted_results.append(adjusted)
 
     return jsonify({
