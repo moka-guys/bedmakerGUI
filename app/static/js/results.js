@@ -856,26 +856,25 @@ function toggleUTR() {
         console.error('Original results not found');
         return;
     }
-    
-    // First, filter originalResults based on MANE selections
-    const filteredResults = originalResults.filter(result => {
-        const selection = manePlusSelections.get(result.gene);
-        return !selection || 
-            (selection === 'mane_select' && result.mane_transcript_type === 'MANE Select') ||
-            (selection === 'mane_plus' && result.mane_transcript_type === 'MANE Plus Clinical');
-    });
-    
+
+    // Get current padding values
+    const padding5 = parseInt(document.getElementById('paddingInput5').value) || 0;
+    const padding3 = parseInt(document.getElementById('paddingInput3').value) || 0;
+    const useSeparateSnpPadding = document.getElementById('separateSnpPadding').checked;
+    const snpPadding5 = useSeparateSnpPadding ? (parseInt(document.getElementById('snpPadding5').value) || 0) : padding5;
+    const snpPadding3 = useSeparateSnpPadding ? (parseInt(document.getElementById('snpPadding3').value) || 0) : padding3;
+
     // Process each result
-    const adjustedResults = filteredResults.map(result => {
-        // Skip if it's a genomic coordinate or has no UTR data
-        if (!result.full_loc_start || result.is_genomic_coordinate) {
+    const adjustedResults = originalResults.map(result => {
+        // Skip if it's a genomic coordinate
+        if (result.is_genomic_coordinate) {
             return result;
         }
 
-        // Start with full coordinates
-        let newStart = result.full_loc_start;
-        let newEnd = result.full_loc_end;
+        let newStart = result.full_loc_start || result.loc_start;
+        let newEnd = result.full_loc_end || result.loc_end;
 
+        // Apply UTR adjustments
         if (result.strand === 1) {  // Positive strand
             if (!include5 && result.five_prime_utr_end) {
                 newStart = Math.max(newStart, result.five_prime_utr_end);
@@ -891,6 +890,27 @@ function toggleUTR() {
                 newStart = Math.max(newStart, result.three_prime_utr_start);
             }
         }
+
+        // Determine if this is a SNP entry
+        const is_snp = result.rsid || result.is_snp;
+
+        // Skip padding for SNPs unless separate SNP padding is enabled
+        if (is_snp && !useSeparateSnpPadding) {
+            return {
+                ...result,
+                loc_start: newStart,
+                loc_end: newEnd
+            };
+        }
+
+        // Apply appropriate padding
+        if (is_snp && useSeparateSnpPadding) {
+            newStart -= snpPadding5;
+            newEnd += snpPadding3;
+        } else if (!is_snp) {
+            newStart -= padding5;
+            newEnd += padding3;
+        }
         
         return {
             ...result,
@@ -899,38 +919,10 @@ function toggleUTR() {
         };
     });
 
-    // Update table with adjusted results
+    // Update table and other UI elements
     updateTable(adjustedResults);
-    
-    // Update IGV
-    if (igvBrowser) {
-        // Remove existing custom track
-        const tracks = igvBrowser.trackViews.filter(trackView => 
-            trackView.track.name === 'Custom BED'
-        );
-        tracks.forEach(track => igvBrowser.removeTrack(track.track));
-
-        // Add new track with updated coordinates
-        const bedTrack = {
-            name: 'Custom BED',
-            type: 'annotation',
-            format: 'bed',
-            features: adjustedResults.map(result => ({
-                chr: addChrPrefix ? 'chr' + result.loc_region : result.loc_region,
-                start: parseInt(result.loc_start),
-                end: parseInt(result.loc_end),
-                name: result.gene || 'Unknown',
-                score: 1000,
-                strand: result.strand === -1 ? '-' : '+'
-            })),
-            displayMode: 'EXPANDED',
-            color: 'darkgreen'
-        };
-        igvBrowser.loadTrack(bedTrack);
-    }
-
-    // Update hidden input for downloads
     document.getElementById('bedContent').value = JSON.stringify(adjustedResults);
+    refreshIGV();
 }
 
 function downloadFile(content, filename) {

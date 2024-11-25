@@ -54,16 +54,21 @@ class BedGenerator:
         # Basic BED fields
         loc_region = f"chr{r['loc_region']}" if add_chr_prefix else r['loc_region']
         
-        # Get strand information (default to forward/1 if not specified)
-        strand = r.get('loc_strand', 1)
-        
-        # Apply padding based on strand direction
-        if strand > 0:  # Forward strand
-            loc_start = int(r['loc_start']) - padding
-            loc_end = int(r['loc_end']) + padding
-        else:  # Reverse strand
-            loc_start = int(r['loc_start']) - padding
-            loc_end = int(r['loc_end']) + padding
+        # Skip padding for genomic coordinates
+        if r.get('is_genomic_coordinate', False):
+            loc_start = int(r['loc_start'])
+            loc_end = int(r['loc_end'])
+        else:
+            # Get strand information (default to forward/1 if not specified)
+            strand = r.get('strand', 1)
+            
+            # Apply padding based on strand direction
+            if strand > 0:  # Forward strand
+                loc_start = int(r['loc_start']) - padding
+                loc_end = int(r['loc_end']) + padding
+            else:  # Reverse strand
+                loc_start = int(r['loc_start']) - padding
+                loc_end = int(r['loc_end']) + padding
         
         # Get additional fields based on format
         format_config = BedGenerator.BED_FORMATS[format_type]

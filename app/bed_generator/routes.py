@@ -171,37 +171,43 @@ def adjust_padding():
     use_separate_snp_padding = data.get('use_separate_snp_padding', False)
     snp_padding_5 = int(data.get('snp_padding_5', padding_5))
     snp_padding_3 = int(data.get('snp_padding_3', padding_3))
-    include_5utr = data.get('include_5utr', False)
-    include_3utr = data.get('include_3utr', False)
     results = data.get('results', [])
 
     adjusted_results = []
     for result in results:
-        # Skip UTR processing for genomic coordinates
+        adjusted = result.copy()
+        
+        # Skip padding for genomic coordinates
         if result.get('is_genomic_coordinate', False):
-            adjusted = result.copy()
-            # Apply padding to current coordinates, not original ones
-            is_snp = result.get('is_snp', False)
-            if not is_snp:
-                adjusted['loc_start'] = result['loc_start'] - padding_5
-                adjusted['loc_end'] = result['loc_end'] + padding_3
-            elif use_separate_snp_padding:
-                adjusted['loc_start'] = result['loc_start'] - snp_padding_5
-                adjusted['loc_end'] = result['loc_end'] + snp_padding_3
             adjusted_results.append(adjusted)
             continue
 
-        # For transcript data, use current coordinates (not full coordinates)
-        adjusted = result.copy()
+        # Determine if this is a SNP entry
+        is_snp = bool(result.get('rsid')) or result.get('is_snp', False)
         
-        # Apply padding to current coordinates (which already have UTR settings applied)
-        is_snp = result.get('is_snp', False)
-        if not is_snp:
-            adjusted['loc_start'] = result['loc_start'] - padding_5
-            adjusted['loc_end'] = result['loc_end'] + padding_3
-        elif use_separate_snp_padding:
-            adjusted['loc_start'] = result['loc_start'] - snp_padding_5
-            adjusted['loc_end'] = result['loc_end'] + snp_padding_3
+        # Skip padding if this is a SNP and separate SNP padding is not enabled
+        if is_snp and not use_separate_snp_padding:
+            adjusted_results.append(adjusted)
+            continue
+
+        # Get strand information (default to forward/1 if not specified)
+        strand = result.get('strand', 1)
+        
+        # Determine which padding values to use
+        if is_snp and use_separate_snp_padding:
+            pad_5 = snp_padding_5
+            pad_3 = snp_padding_3
+        else:
+            pad_5 = padding_5
+            pad_3 = padding_3
+
+        # Apply padding based on strand direction
+        if strand > 0:  # Forward strand
+            adjusted['loc_start'] = result['loc_start'] - pad_5
+            adjusted['loc_end'] = result['loc_end'] + pad_3
+        else:  # Reverse strand
+            adjusted['loc_start'] = result['loc_start'] - pad_3
+            adjusted['loc_end'] = result['loc_end'] + pad_5
             
         adjusted_results.append(adjusted)
 
