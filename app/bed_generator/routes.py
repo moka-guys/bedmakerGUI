@@ -205,6 +205,12 @@ def adjust_padding():
             bool(re.match(r'^RS\d+$', result.get('rsid', ''), re.IGNORECASE))
         )
         
+        if is_variant and not use_separate_snp_padding:
+            # Skip padding for SNPs when separate padding is not enabled
+            result['loc_start'] = result['original_loc_start']
+            result['loc_end'] = result['original_loc_end']
+            continue
+        
         p5 = snp_padding_5 if (is_variant and use_separate_snp_padding) else padding_5
         p3 = snp_padding_3 if (is_variant and use_separate_snp_padding) else padding_3
 
