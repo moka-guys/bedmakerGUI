@@ -61,6 +61,14 @@ def process_identifiers(identifiers: List[str], assembly: str, include_5utr: boo
                                 print(f"Attempting secondary lookup using MANE SELECT stable_id: {mane_select['stable_id']}")
                                 secondary_data = fetch_data_from_tark(mane_select['stable_id'], assembly)
                                 if secondary_data:
+                                    # Preserve MANE status from original data
+                                    if isinstance(secondary_data, list):
+                                        for sd in secondary_data:
+                                            sd['mane_transcript_type'] = mane_select.get('mane_transcript_type')
+                                            sd['warning'] = {
+                                                'type': 'version_specified',
+                                                'message': f"Using GRCh37 version of MANE Select transcript"
+                                            }
                                     data = secondary_data
 
                         # Process TARK data
@@ -79,12 +87,14 @@ def process_identifiers(identifiers: List[str], assembly: str, include_5utr: boo
                             'gene': data.gene,
                             'accession': data.accession,
                             'entrez_id': data.entrez_id,
-                            'biotype': data.transcript_biotype,
+                            'transcript_biotype': data.rsid,
                             'most_severe_consequence': data.most_severe_consequence,
                             'allele_string': data.allele_string,
                             'original_loc_start': data.loc_start,
                             'original_loc_end': data.loc_end,
-                            'rsid': data.rsid
+                            'rsid': data.rsid,
+                            'is_snp': True,  # Add flag to identify SNP entries
+                            'mane_transcript_type': None  # Explicitly set to None for SNPs
                         }
                         results.append(variant_dict)
                 else:
@@ -251,3 +261,47 @@ def increment_version_number(filename: str) -> str:
         current_version = int(match.group(1))
         return re.sub(r'_v\d+$', f'_v{current_version + 1}', filename)
     return f"{filename}_v2"
+
+def standardize_result(result: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Standardizes result structure across all entry types.
+    """
+    standard_result = {
+        # Required fields
+        'loc_region': result.get('loc_region'),
+        'loc_start': result.get('loc_start'),
+        'loc_end': result.get('loc_end'),
+        'gene': result.get('gene', 'none'),
+        
+        # Optional fields with defaults
+        'entrez_id': result.get('entrez_id', ''),
+        'accession': result.get('accession', ''),
+        'exon_id': result.get('exon_id', ''),
+        'exon_number': result.get('exon_number', ''),
+        'transcript_biotype': result.get('transcript_biotype', ''),
+        'mane_transcript': result.get('mane_transcript', ''),
+        'mane_transcript_type': result.get('mane_transcript_type'),
+        
+        # Flags
+        'is_snp': result.get('is_snp', False),
+        'is_genomic_coordinate': result.get('is_genomic_coordinate', False),
+        
+        # Coordinate tracking
+        'original_loc_start': result.get('original_loc_start', result.get('loc_start')),
+        'original_loc_end': result.get('original_loc_end', result.get('loc_end')),
+        
+        # UTR information
+        'strand': result.get('strand', 1),
+        'five_prime_utr_end': result.get('five_prime_utr_end'),
+        'three_prime_utr_start': result.get('three_prime_utr_start'),
+        
+        # Warning/status information
+        'warning': result.get('warning'),
+    }
+    
+    # Store full coordinates if available
+    if 'full_loc_start' in result:
+        standard_result['full_loc_start'] = result['full_loc_start']
+        standard_result['full_loc_end'] = result['full_loc_end']
+    
+    return standard_result

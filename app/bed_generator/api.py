@@ -164,6 +164,19 @@ def fetch_data_from_tark(identifier: str, assembly: str) -> Optional[List[Dict]]
         'assembly_name': 'GRCh38' if assembly == 'GRCh38' else 'GRCh37'
     }
 
+    # If version specified, first try to get exact version match
+    if version:
+        version_params = {**params, 'stable_id_version': version}
+        data = ApiClient.get_tark_data(search_url, version_params)
+        if data:
+            exact_matches = [t for t in data if 
+                           t['stable_id'] == base_accession and 
+                           str(t['stable_id_version']) == version and
+                           t['assembly'] == params['assembly_name']]
+            if exact_matches:
+                return process_transcripts(exact_matches, identifier)
+
+    # If no exact match found or no version specified, proceed with base accession search
     data = ApiClient.get_tark_data(search_url, params)
     if not data:
         return None

@@ -754,6 +754,18 @@ function updateTable(results) {
         const row = document.createElement('tr');
         row.onclick = function() { setActiveRow(this, index); };
         
+        // Determine the status display
+        let statusDisplay = '';
+        if (result.is_snp) {
+            statusDisplay = `<span class="badge bg-info text-white"><i class="fas fa-dna"></i> SNP</span>`;
+        } else if (result.warning && result.warning.type === 'transcript_selection') {
+            statusDisplay = `<span class="badge bg-warning text-dark">
+                <i class="fas fa-user-edit"></i> Manual transcript selection by user
+            </span>`;
+        } else if (result.mane_transcript_type) {
+            statusDisplay = result.mane_transcript_type;
+        }
+        
         row.innerHTML = `
             <td>${result.loc_region}</td>
             <td>${result.loc_start}</td>
@@ -765,9 +777,7 @@ function updateTable(results) {
             <td>${result.exon_number}</td>
             <td>${result.transcript_biotype}</td>
             <td>${result.mane_transcript}</td>
-            <td>
-                ${getMANEStatusBadge(result)}
-            </td>
+            <td>${statusDisplay}</td>
         `;
         
         tableBody.appendChild(row);
@@ -775,37 +785,6 @@ function updateTable(results) {
 
     document.getElementById('bedContent').value = JSON.stringify(validResults);
     currentResults = validResults;
-}
-
-// New helper function to generate MANE status badge
-function getMANEStatusBadge(result) {
-    if (result.warning) {
-        if (result.warning.type === 'version_specified') {
-            return `<span class="badge bg-success text-white">
-                <i class="fas fa-check"></i> ${result.warning.message}
-            </span>`;
-        } else if (result.warning.message && result.warning.message.includes("best available GRCh38 MANE transcript match")) {
-            return `<span class="badge bg-info text-white">
-                <i class="fas fa-info-circle"></i> GRCh38 MANE SELECT equivalent
-            </span>`;
-        } else {
-            return `<span class="badge bg-warning text-dark">
-                <i class="fas fa-exclamation-triangle"></i> 
-                ${result.warning.message || result.warning}
-            </span>`;
-        }
-    } else {
-        const maneType = result.mane_transcript_type;
-        if (maneType === 'MANE Plus Clinical') {
-            return `<span class="badge bg-primary text-white">
-                <i class="fas fa-plus-circle"></i> MANE Plus Clinical
-            </span>`;
-        } else {
-            return `<span class="badge bg-success text-white">
-                <i class="fas fa-check"></i> MANE Select
-            </span>`;
-        }
-    }
 }
 
 function updateIGV(results) {

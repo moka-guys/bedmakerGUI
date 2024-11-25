@@ -104,7 +104,11 @@
                                                     </span>
                                                 {% endif %}
                                             {% else %}
-                                                {% if result.mane_transcript_type == 'MANE Plus Clinical' %}
+                                                {% if result.is_snp %}
+                                                    <span class="badge bg-info text-white">
+                                                        <i class="fas fa-dna"></i> SNP
+                                                    </span>
+                                                {% elif result.mane_transcript_type == 'MANE Plus Clinical' %}
                                                     <span class="badge bg-primary text-white">
                                                         <i class="fas fa-plus-circle"></i> MANE Plus Clinical
                                                     </span>
