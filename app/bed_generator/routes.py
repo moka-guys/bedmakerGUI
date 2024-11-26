@@ -417,7 +417,6 @@ def download_custom_bed(bed_type):
         settings = Settings.get_settings()
         print(f"\nDEBUG: Processing {bed_type} download")
         print(f"Settings: {settings.to_dict()}")
-        print(f"Initial results: {results}")
         
         # Convert bed_type to match database column names
         db_type = {
@@ -443,30 +442,39 @@ def download_custom_bed(bed_type):
                 processed_results.append(processed)
                 continue
             
-            # If UTRs are enabled and full coordinates are available, use them
-            if 'full_loc_start' in result and 'full_loc_end' in result:
-                if include_5utr and include_3utr:
-                    # Use full coordinates when both UTRs are enabled
-                    processed['loc_start'] = result['full_loc_start']
-                    processed['loc_end'] = result['full_loc_end']
-                else:
-                    # Start with full coordinates and adjust based on UTR settings
-                    new_start = result['full_loc_start']
-                    new_end = result['full_loc_end']
-                    
-                    if result.get('strand', 1) == 1:  # Positive strand
-                        if not include_5utr and result.get('five_prime_utr_end'):
-                            new_start = result['five_prime_utr_end']
-                        if not include_3utr and result.get('three_prime_utr_start'):
-                            new_end = result['three_prime_utr_start']
-                    else:  # Negative strand
-                        if not include_5utr and result.get('five_prime_utr_end'):
-                            new_end = result['five_prime_utr_end']
-                        if not include_3utr and result.get('three_prime_utr_start'):
-                            new_start = result['three_prime_utr_start']
-                    
-                    processed['loc_start'] = new_start
-                    processed['loc_end'] = new_end
+            strand = result.get('strand', 1)
+            print(f"\nProcessing result with strand {strand}:")
+            print(f"Original coordinates: {result['loc_start']}-{result['loc_end']}")
+            print(f"Full coordinates: {result['full_loc_start']}-{result['full_loc_end']}")
+            
+            # Start with coding sequence coordinates
+            new_start = int(result['loc_start'])
+            new_end = int(result['loc_end'])
+            
+            if strand == -1:  # Negative strand
+                if include_3utr:
+                    # For negative strand, 3' UTR is at the higher coordinates
+                    new_end = int(result['full_loc_end'])
+                    print(f"Including 3' UTR, new end: {new_end}")
+                
+                if include_5utr:
+                    # For negative strand, 5' UTR is at the lower coordinates
+                    new_start = int(result['full_loc_start'])
+                    print(f"Including 5' UTR, new start: {new_start}")
+            
+            else:  # Positive strand
+                if include_3utr:
+                    # For positive strand, 3' UTR is at the higher coordinates
+                    new_end = int(result['full_loc_end'])
+                    print(f"Including 3' UTR, new end: {new_end}")
+                
+                if include_5utr:
+                    # For positive strand, 5' UTR is at the lower coordinates
+                    new_start = int(result['full_loc_start'])
+                    print(f"Including 5' UTR, new start: {new_start}")
+            
+            processed['loc_start'] = new_start
+            processed['loc_end'] = new_end
             
             # Apply padding
             padding = int(getattr(settings, f'{db_type}_padding', 0))
@@ -475,8 +483,7 @@ def download_custom_bed(bed_type):
             
             processed['_padding'] = padding
             processed_results.append(processed)
-            
-            print(f"Processed result: {processed}")  # Debug print
+            print(f"Final coordinates: {new_start}-{new_end}")
         
         # Generate BED file
         bed_content = BedGenerator.create_formatted_bed(
@@ -485,7 +492,6 @@ def download_custom_bed(bed_type):
             add_chr_prefix=add_chr_prefix
         )
         
-        # Debug print the actual BED content
         print(f"\nGenerated BED content:\n{bed_content}")
         
         filename = f"{filename_prefix}_{bed_type}.bed"
