@@ -199,14 +199,16 @@ def generate_bed_file(bed_type: str, results: List[Dict[str, Any]], filename_pre
 
                 if result.get('strand', 1) == 1:  # Positive strand
                     if not include_5utr and result.get('five_prime_utr_end'):
-                        new_start = max(new_start, result['five_prime_utr_end'])
+                        new_start = max(new_start, int(result['five_prime_utr_end']))
                     if not include_3utr and result.get('three_prime_utr_start'):
-                        new_end = min(new_end, result['three_prime_utr_start'])
+                        new_end = min(new_end, int(result['three_prime_utr_start']))
                 else:  # Negative strand
                     if not include_5utr and result.get('five_prime_utr_end'):
-                        new_end = min(new_end, result['five_prime_utr_end'])
+                        # For negative strand, 5' UTR is at the 3' end
+                        new_end = min(new_end, int(result['five_prime_utr_end']))
                     if not include_3utr and result.get('three_prime_utr_start'):
-                        new_start = max(new_start, result['three_prime_utr_start'])
+                        # For negative strand, 3' UTR is at the 5' end
+                        new_start = max(new_start, int(result['three_prime_utr_start']))
                 
                 processed['loc_start'] = new_start
                 processed['loc_end'] = new_end

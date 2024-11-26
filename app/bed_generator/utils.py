@@ -39,29 +39,48 @@ def process_identifiers(identifiers: List[str], assembly: str, include_5utr: boo
     results = []
     no_data_identifiers = []
     
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+    print(f"\n=== Starting batch processing of {len(identifiers)} identifiers ===")
+    
+    # Group identifiers by type for batch processing
+    rsids = []
+    other_identifiers = []
+    for identifier in identifiers:
+        if re.match(r'^RS\d+$', identifier, re.IGNORECASE):
+            rsids.append(identifier)
+        else:
+            other_identifiers.append(identifier)
+    
+    print(f"Found {len(rsids)} rsIDs and {len(other_identifiers)} other identifiers")
+    
+    with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
         future_to_id = {}
-        for identifier in identifiers:
-            if re.match(r'^RS\d+$', identifier, re.IGNORECASE):
-                print(f"Processing rsID: {identifier}")
-                future_to_id[executor.submit(fetch_variant_info, identifier, assembly)] = identifier
-            else:
-                future_to_id[executor.submit(fetch_data_from_tark, identifier, assembly)] = identifier
         
+        # Submit rsIDs for processing
+        for rsid in rsids:
+            print(f"Submitting rsID: {rsid}")
+            future_to_id[executor.submit(fetch_variant_info, rsid, assembly)] = rsid
+        
+        # Submit other identifiers for processing
+        for identifier in other_identifiers:
+            print(f"Submitting identifier: {identifier}")
+            future_to_id[executor.submit(fetch_data_from_tark, identifier, assembly)] = identifier
+        
+        # Process completed futures
         for future in concurrent.futures.as_completed(future_to_id):
             identifier = future_to_id[future]
             try:
+                print(f"\n=== Processing results for {identifier} ===")
                 data = future.result()
+                
                 if data:
                     if isinstance(data, list):
-                        # If we're looking for GRCh37 and no data found, try using MANE SELECT stable_id
+                        # Handle MANE SELECT for GRCh37
                         if assembly == 'GRCh37' and not any(d.get('assembly_name') == 'GRCh37' for d in data):
                             mane_select = next((d for d in data if d.get('mane_transcript_type') == 'MANE SELECT'), None)
                             if mane_select and mane_select.get('stable_id'):
                                 print(f"Attempting secondary lookup using MANE SELECT stable_id: {mane_select['stable_id']}")
                                 secondary_data = fetch_data_from_tark(mane_select['stable_id'], assembly)
                                 if secondary_data:
-                                    # Preserve MANE status from original data
                                     if isinstance(secondary_data, list):
                                         for sd in secondary_data:
                                             sd['mane_transcript_type'] = mane_select.get('mane_transcript_type')
@@ -70,13 +89,14 @@ def process_identifiers(identifiers: List[str], assembly: str, include_5utr: boo
                                                 'message': f"Using GRCh37 version of MANE Select transcript"
                                             }
                                     data = secondary_data
-
+                        
                         # Process TARK data
                         for r in data:
                             if r is None:
                                 continue
                             processed_r = process_tark_data(r, include_5utr, include_3utr)
                             if processed_r:
+                                print(f"Processed: Gene={processed_r.get('gene')}, EntrezID={processed_r.get('entrez_id')}")
                                 results.append(processed_r)
                     else:
                         # Handle VariantInfo dataclass
@@ -93,16 +113,21 @@ def process_identifiers(identifiers: List[str], assembly: str, include_5utr: boo
                             'original_loc_start': data.loc_start,
                             'original_loc_end': data.loc_end,
                             'rsid': data.rsid,
-                            'is_snp': True,  # Add flag to identify SNP entries
-                            'mane_transcript_type': None  # Explicitly set to None for SNPs
+                            'is_snp': True,
+                            'mane_transcript_type': None
                         }
+                        print(f"Processed SNP: {variant_dict['rsid']}")
                         results.append(variant_dict)
                 else:
-                    no_data_identifiers.append(identifier)
                     print(f"No data found for {identifier}")
+                    no_data_identifiers.append(identifier)
             except Exception as e:
                 print(f"Error processing identifier {identifier}: {e}")
                 no_data_identifiers.append(identifier)
+    
+    print(f"\n=== Batch processing complete ===")
+    print(f"Successfully processed: {len(results)} results")
+    print(f"Failed to process: {len(no_data_identifiers)} identifiers")
     
     return results, no_data_identifiers
 

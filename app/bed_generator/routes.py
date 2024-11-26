@@ -415,8 +415,6 @@ def download_custom_bed(bed_type):
         
         # Get settings from database
         settings = Settings.get_settings()
-        print(f"\nDEBUG: Processing {bed_type} download")
-        print(f"Settings: {settings.to_dict()}")
         
         # Convert bed_type to match database column names
         db_type = {
@@ -430,8 +428,6 @@ def download_custom_bed(bed_type):
         include_5utr = getattr(settings, f'{db_type}_include_5utr', False)
         include_3utr = getattr(settings, f'{db_type}_include_3utr', False)
         
-        print(f"UTR settings for {db_type}: 5'UTR={include_5utr}, 3'UTR={include_3utr}")
-        
         # Process results with UTR settings
         processed_results = []
         for result in results:
@@ -442,57 +438,52 @@ def download_custom_bed(bed_type):
                 processed_results.append(processed)
                 continue
             
-            strand = result.get('strand', 1)
-            print(f"\nProcessing exon {result.get('exon_number')} with strand {strand}:")
-            print(f"Original coordinates: {result['loc_start']}-{result['loc_end']}")
-            print(f"Full coordinates: {result['full_loc_start']}-{result['full_loc_end']}")
-            
-            # Use the full exon coordinates
-            new_start = int(result['full_loc_start'])
-            new_end = int(result['full_loc_end'])
-            
-            if strand == 1:  # Positive strand
-                if not include_3utr and result.get('three_prime_utr_start'):
-                    # If this exon contains the 3' UTR
-                    if new_end > int(result['three_prime_utr_start']):
-                        new_end = int(result['three_prime_utr_start'])
-                        print(f"Removing 3' UTR, new end: {new_end}")
-                
-                if not include_5utr and result.get('five_prime_utr_end'):
-                    # If this exon contains the 5' UTR
-                    if new_start < int(result['five_prime_utr_end']):
-                        new_start = int(result['five_prime_utr_end'])
-                        print(f"Removing 5' UTR, new start: {new_start}")
-            
-            else:  # Negative strand
-                if not include_3utr and result.get('five_prime_utr_end'):
-                    # If this exon contains the 3' UTR
-                    if new_end > int(result['five_prime_utr_end']):
-                        new_end = int(result['five_prime_utr_end'])
-                        print(f"Removing 3' UTR, new end: {new_end}")
-                
-                if not include_5utr and result.get('three_prime_utr_start'):
-                    # If this exon contains the 5' UTR
-                    if new_start < int(result['three_prime_utr_start']):
-                        new_start = int(result['three_prime_utr_start'])
-                        print(f"Removing 5' UTR, new start: {new_start}")
-            
-            # Skip exons that are entirely within excluded UTRs
-            if new_end <= new_start:
-                print(f"Skipping exon {result.get('exon_number')} as it falls entirely within excluded UTR")
+            # Handle SNPs differently
+            if result.get('is_snp', False) or result.get('rsid'):
+                center = int(result['loc_start'])
+                padding = int(getattr(settings, f'{db_type}_snp_padding', 0))
+                processed['loc_start'] = center - padding
+                processed['loc_end'] = center + padding
+                processed['_padding'] = padding
+                processed_results.append(processed)
                 continue
             
+            # Process regular transcript entries
+            strand = result.get('strand', 1)
+            
+            # Use the full exon coordinates as starting point
+            new_start = int(result.get('full_loc_start', result['loc_start']))
+            new_end = int(result.get('full_loc_end', result['loc_end']))
+            
+            if strand == 1:  # Positive strand
+                if not include_5utr and result.get('five_prime_utr_end'):
+                    if new_start < int(result['five_prime_utr_end']):
+                        new_start = int(result['five_prime_utr_end'])
+                
+                if not include_3utr and result.get('three_prime_utr_start'):
+                    if new_end > int(result['three_prime_utr_start']):
+                        new_end = int(result['three_prime_utr_start'])
+            else:  # Negative strand
+                if not include_5utr and result.get('five_prime_utr_end'):
+                    if new_end > int(result['five_prime_utr_end']):
+                        new_end = int(result['five_prime_utr_end'])
+                
+                if not include_3utr and result.get('three_prime_utr_start'):
+                    if new_start < int(result['three_prime_utr_start']):
+                        new_start = int(result['three_prime_utr_start'])
+            
+            # Skip entries that would be completely removed
+            if new_end <= new_start:
+                print(f"Skipping entry {result.get('exon_number')} as it would be completely removed by UTR exclusion")
+                continue
+                
             processed['loc_start'] = new_start
             processed['loc_end'] = new_end
             
-            # Apply padding
+            # Apply regular padding
             padding = int(getattr(settings, f'{db_type}_padding', 0))
-            if result.get('is_snp', False) or result.get('rsid'):
-                padding = int(getattr(settings, f'{db_type}_snp_padding', 0))
-            
             processed['_padding'] = padding
             processed_results.append(processed)
-            print(f"Final coordinates for exon {result.get('exon_number')}: {new_start}-{new_end}")
         
         # Generate BED file
         bed_content = BedGenerator.create_formatted_bed(
@@ -500,8 +491,6 @@ def download_custom_bed(bed_type):
             format_type=db_type,
             add_chr_prefix=add_chr_prefix
         )
-        
-        print(f"\nGenerated BED content:\n{bed_content}")
         
         filename = f"{filename_prefix}_{bed_type}.bed"
         

@@ -49,43 +49,45 @@ class BedGenerator:
     def format_bed_line(cls, result: Dict, padding: int, format_type: str, add_chr_prefix: bool = False) -> str:
         """Formats a single BED line."""
         try:
-            print(f"Formatting BED line for result: {result}")  # Debug print
-            
             # Format chromosome/region
             loc_region = str(result['loc_region'])
-            if add_chr_prefix and not loc_region.startswith('chr'):
+            if add_chr_prefix and not loc_region.lower().startswith('chr'):
                 loc_region = f'chr{loc_region}'
 
-            # Get coordinates - use the processed coordinates directly
+            # Get coordinates
             start = int(result['loc_start'])
             end = int(result['loc_end'])
             
-            print(f"Initial coordinates: start={start}, end={end}")  # Debug print
+            # Only apply padding if this is not a SNP and padding hasn't been applied
+            if not result.get('is_snp', False) and not result.get('_padding'):
+                padding = int(result.get('_padding', 0))
+                if padding > 0:
+                    start = max(0, start - padding)
+                    end = end + padding
             
-            # Apply padding if specified in the result
-            padding = int(result.get('_padding', 0))
-            if padding > 0:
-                start = max(0, start - padding)
-                end = end + padding
-                
-            print(f"After padding: start={start}, end={end}")  # Debug print
-
-            # Format the basic BED fields (chromosome, start, end)
+            # Format the basic BED fields
             bed_line = f"{loc_region}\t{start}\t{end}"
             
             # Add format-specific fields
             if format_type in cls.BED_FORMATS:
-                format_fields = cls.BED_FORMATS[format_type]['fields']
-                additional_fields = [field(result, padding) for field in format_fields]
-                bed_line += '\t' + '\t'.join(additional_fields)
-            
-            print(f"Final BED line: {bed_line}")  # Debug print
+                format_config = cls.BED_FORMATS[format_type]
+                additional_fields = []
+                for field_func in format_config['fields']:
+                    try:
+                        field_value = field_func(result, padding)
+                        additional_fields.append(str(field_value))
+                    except Exception as e:
+                        current_app.logger.error(f"Error processing field for format {format_type}: {str(e)}")
+                        raise
+                
+                if additional_fields:
+                    bed_line += '\t' + '\t'.join(additional_fields)
+
             return bed_line
             
         except Exception as e:
             current_app.logger.error(f"Error formatting BED line: {str(e)}")
             current_app.logger.error(f"Result: {result}")
-            current_app.logger.error(f"Padding: {padding}")
             raise
 
     @classmethod

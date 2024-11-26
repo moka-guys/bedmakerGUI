@@ -144,19 +144,10 @@ def fetch_variant_info(rsid: str, assembly: str) -> Optional[VariantInfo]:
     )
 
 def fetch_data_from_tark(identifier: str, assembly: str) -> Optional[List[Dict]]:
-    """
-    Fetches transcript data from the TARK API based on an identifier and assembly.
-
-    Args:
-        identifier (str): The identifier for the transcript (can include version, e.g., NM_004329.3).
-        assembly (str): The genome assembly version ('GRCh38' or 'GRCh37').
-
-    Returns:
-        Optional[List[Dict]]: A list of dictionaries containing transcript data if successful, otherwise None.
-    """
+    print(f"\n=== Fetching data for identifier: {identifier} ===")
     base_accession = identifier.split('.')[0]
     version = identifier.split('.')[1] if '.' in identifier else None
-    user_specified_version = '.' in identifier  # Add this flag
+    user_specified_version = '.' in identifier
 
     search_url = f"{TARK_API_URL}transcript/search/"
     params = {
@@ -164,26 +155,27 @@ def fetch_data_from_tark(identifier: str, assembly: str) -> Optional[List[Dict]]
         'expand': 'exons,genes',
         'assembly_name': 'GRCh38' if assembly == 'GRCh38' else 'GRCh37'
     }
+    print(f"TARK API params: {params}")
+
+    # Print raw response
+    response = requests.get(search_url, params=params)
+    print("\n=== Raw TARK API Response ===")
+    print(f"Status Code: {response.status_code}")
+    print(f"Raw Response: {response.text[:100]}...")  # Print first 1000 chars to avoid overwhelming logs
+    
+    if response.ok:
+        data = response.json()
+        print("\n=== Parsed Response Data Structure ===")
+        if data:
+            print(f"First result keys: {list(data[0].keys())}")
+            if 'genes' in data[0]:
+                print(f"Genes data structure: {data[0]['genes']}")
 
     # If version specified, first try to get exact version match
     if version:
         version_params = {**params, 'stable_id_version': version}
         data = ApiClient.get_tark_data(search_url, version_params)
-        if data:
-            exact_matches = [t for t in data if 
-                           t['stable_id'] == base_accession and 
-                           str(t['stable_id_version']) == version and
-                           t['assembly'] == params['assembly_name']]
-            if exact_matches:
-                # Only add warning if user specified the version
-                if user_specified_version:
-                    for match in exact_matches:
-                        match['warning'] = {
-                            'type': 'version_specified',
-                            'message': 'Version specified by user',
-                            'identifier': identifier
-                        }
-                return process_transcripts(exact_matches, identifier)
+        print(f"Version specified data response: {data}")
 
     # If no exact match found or no version specified, proceed with base accession search
     data = ApiClient.get_tark_data(search_url, params)

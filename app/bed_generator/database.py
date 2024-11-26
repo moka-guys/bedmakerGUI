@@ -30,6 +30,10 @@ def store_bed_file(file_name: str, results: List[Dict], user_id: int, initial_qu
     new_bed_file = create_bed_file(file_name, user_id, initial_query, assembly)
     
     # Use the model's create_entries method
+    print("\n=== Creating BED entries ===")
+    for result in results:
+        print(f"\nProcessing result for gene: {result.get('gene')}")
+        print(f"EntrezID from result: {result.get('entrez_id')}")
     BedEntry.create_entries(new_bed_file.id, results)
     
     db.session.commit()
