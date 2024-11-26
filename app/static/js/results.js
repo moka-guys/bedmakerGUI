@@ -282,8 +282,10 @@ function downloadRawBed() {
 
 function downloadCustomBed(bedType) {
     const results = JSON.parse(document.getElementById('bedContent').value);
-    const filenamePrefix = document.getElementById('bedFileNamePrefix').value;
-    const addChrPrefix = document.getElementById('addChrPrefix').checked;
+    // Use a default filename format: type_YYYYMMDD.bed
+    const today = new Date();
+    const dateStr = today.toISOString().slice(0,10).replace(/-/g, '');
+    const filename = `${bedType}_${dateStr}`; // Default filename format
     
     fetch('/bed_generator/download_custom_bed/' + bedType, {
         method: 'POST',
@@ -292,26 +294,33 @@ function downloadCustomBed(bedType) {
         },
         body: JSON.stringify({
             results: results,
-            filename_prefix: filenamePrefix,
-            add_chr_prefix: addChrPrefix
+            filename: filename,
+            addChrPrefix: addChrPrefix
         })
     })
     .then(response => response.json())
     .then(data => {
-        if (data.content) {
-            // Download file
-            const blob = new Blob([data.content], { type: 'text/plain' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = data.filename;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
+        if (data.error) {
+            throw new Error(data.error);
         }
+        downloadFile(data.content, data.filename);
     })
-    .catch(error => console.error('Error:', error));
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error generating BED file: ' + error.message);
+    });
+}
+
+function downloadFile(content, filename) {
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
 }
 
 function downloadBedFile(bedType, data) {
@@ -478,15 +487,6 @@ function adjustValue(button, adjustment, index, field) {
     refreshIGV();
 }
 
-function refreshIGV() {
-    if (igvBrowser) {
-        igvBrowser.removeAllTracks();
-        igvBrowser = null; // Clear the existing IGV browser instance
-        document.getElementById('igv-div').innerHTML = ''; // Clear the IGV div content
-        loadIGV(); // Re-initialize the IGV browser
-    }
-}
-
 function setActiveRow(row, index) {
     // Remove active class from all rows
     document.querySelectorAll('.table tbody tr').forEach(tr => tr.classList.remove('active-row'));
@@ -510,59 +510,6 @@ function updateIGVLocus() {
         const locus = `${activeResult.loc_region}:${start}-${end}`;
         igvBrowser.search(locus);
     }
-}
-
-function addNewLine() {
-    if (!isEditingAllowed) {
-        alert('Editing is currently disabled. Please enable editing to add new lines.');
-        return;
-    }
-    
-    const results = JSON.parse(document.getElementById('bedContent').value);
-    const newLine = {
-        loc_region: '',
-        loc_start: '',
-        loc_end: '',
-        entrez_id: '',
-        gene: '',
-        accession: '',
-        exon_id: '',
-        exon_number: '',
-        transcript_biotype: '',
-        mane_transcript: '',
-        mane_transcript_type: ''
-    };
-    results.push(newLine);
-    document.getElementById('bedContent').value = JSON.stringify(results);
-    
-    const tableBody = document.querySelector('.table tbody');
-    const newRow = document.createElement('tr');
-    newRow.onclick = function() { setActiveRow(this, results.length - 1); };
-    newRow.innerHTML = `
-        <td contenteditable="true" onblur="updateResult(this, ${results.length - 1}, 'loc_region')"></td>
-        <td>
-            <div class="input-group">
-                <input type="number" class="form-control form-control-sm" value="" onchange="updateResult(this, ${results.length - 1}, 'loc_start')">
-            </div>
-        </td>
-        <td>
-            <div class="input-group">
-                <input type="number" class="form-control form-control-sm" value="" onchange="updateResult(this, ${results.length - 1}, 'loc_end')">
-            </div>
-        </td>
-        <td contenteditable="true" onblur="updateResult(this, ${results.length - 1}, 'entrez_id')"></td>
-        <td contenteditable="true" onblur="updateResult(this, ${results.length - 1}, 'gene')"></td>
-        <td contenteditable="true" onblur="updateResult(this, ${results.length - 1}, 'accession')"></td>
-        <td contenteditable="true" onblur="updateResult(this, ${results.length - 1}, 'exon_id')"></td>
-        <td contenteditable="true" onblur="updateResult(this, ${results.length - 1}, 'exon_number')"></td>
-        <td contenteditable="true" onblur="updateResult(this, ${results.length - 1}, 'transcript_biotype')"></td>
-        <td contenteditable="true" onblur="updateResult(this, ${results.length - 1}, 'mane_transcript')"></td>
-        <td contenteditable="true" onblur="updateResult(this, ${results.length - 1}, 'mane_transcript_type')"></td>
-    `;
-    tableBody.appendChild(newRow);
-    
-    // Scroll to the bottom of the table
-    tableBody.parentElement.scrollTop = tableBody.parentElement.scrollHeight;
 }
 
 function compareBedFiles(uploadedContent) {
@@ -901,24 +848,15 @@ function toggleUTR() {
 }
 
 function downloadFile(content, filename) {
-    // Create a blob with the file content
     const blob = new Blob([content], { type: 'text/plain' });
-    
-    // Create a temporary URL for the blob
     const url = window.URL.createObjectURL(blob);
-    
-    // Create a temporary link element
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    
-    // Append link to body, click it, and remove it
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    // Clean up by revoking the blob URL
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
     window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
 }
 
 function handleManePlusTranscripts(results) {
