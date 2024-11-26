@@ -443,35 +443,44 @@ def download_custom_bed(bed_type):
                 continue
             
             strand = result.get('strand', 1)
-            print(f"\nProcessing result with strand {strand}:")
+            print(f"\nProcessing exon {result.get('exon_number')} with strand {strand}:")
             print(f"Original coordinates: {result['loc_start']}-{result['loc_end']}")
             print(f"Full coordinates: {result['full_loc_start']}-{result['full_loc_end']}")
             
-            # Start with coding sequence coordinates
-            new_start = int(result['loc_start'])
-            new_end = int(result['loc_end'])
+            # Use the full exon coordinates
+            new_start = int(result['full_loc_start'])
+            new_end = int(result['full_loc_end'])
             
-            if strand == -1:  # Negative strand
-                if include_3utr:
-                    # For negative strand, 3' UTR is at the higher coordinates
-                    new_end = int(result['full_loc_end'])
-                    print(f"Including 3' UTR, new end: {new_end}")
+            if strand == 1:  # Positive strand
+                if not include_3utr and result.get('three_prime_utr_start'):
+                    # If this exon contains the 3' UTR
+                    if new_end > int(result['three_prime_utr_start']):
+                        new_end = int(result['three_prime_utr_start'])
+                        print(f"Removing 3' UTR, new end: {new_end}")
                 
-                if include_5utr:
-                    # For negative strand, 5' UTR is at the lower coordinates
-                    new_start = int(result['full_loc_start'])
-                    print(f"Including 5' UTR, new start: {new_start}")
+                if not include_5utr and result.get('five_prime_utr_end'):
+                    # If this exon contains the 5' UTR
+                    if new_start < int(result['five_prime_utr_end']):
+                        new_start = int(result['five_prime_utr_end'])
+                        print(f"Removing 5' UTR, new start: {new_start}")
             
-            else:  # Positive strand
-                if include_3utr:
-                    # For positive strand, 3' UTR is at the higher coordinates
-                    new_end = int(result['full_loc_end'])
-                    print(f"Including 3' UTR, new end: {new_end}")
+            else:  # Negative strand
+                if not include_3utr and result.get('five_prime_utr_end'):
+                    # If this exon contains the 3' UTR
+                    if new_end > int(result['five_prime_utr_end']):
+                        new_end = int(result['five_prime_utr_end'])
+                        print(f"Removing 3' UTR, new end: {new_end}")
                 
-                if include_5utr:
-                    # For positive strand, 5' UTR is at the lower coordinates
-                    new_start = int(result['full_loc_start'])
-                    print(f"Including 5' UTR, new start: {new_start}")
+                if not include_5utr and result.get('three_prime_utr_start'):
+                    # If this exon contains the 5' UTR
+                    if new_start < int(result['three_prime_utr_start']):
+                        new_start = int(result['three_prime_utr_start'])
+                        print(f"Removing 5' UTR, new start: {new_start}")
+            
+            # Skip exons that are entirely within excluded UTRs
+            if new_end <= new_start:
+                print(f"Skipping exon {result.get('exon_number')} as it falls entirely within excluded UTR")
+                continue
             
             processed['loc_start'] = new_start
             processed['loc_end'] = new_end
@@ -483,7 +492,7 @@ def download_custom_bed(bed_type):
             
             processed['_padding'] = padding
             processed_results.append(processed)
-            print(f"Final coordinates: {new_start}-{new_end}")
+            print(f"Final coordinates for exon {result.get('exon_number')}: {new_start}-{new_end}")
         
         # Generate BED file
         bed_content = BedGenerator.create_formatted_bed(

@@ -25,10 +25,23 @@ document.addEventListener('DOMContentLoaded', function() {
         event.preventDefault();
 
         var assembly = document.getElementById('assembly').value;
+        var identifiersInput = document.getElementById('identifiers').value;
+        
+        // Check for duplicates in identifiers
+        const identifiersList = identifiersInput.split(/[\s,]+/).filter(Boolean);
+        const uniqueIdentifiers = [...new Set(identifiersList)];
+        
+        if (identifiersList.length !== uniqueIdentifiers.length) {
+            const duplicates = identifiersList.filter((item, index) => 
+                identifiersList.indexOf(item) !== index
+            );
+            alert(`Please remove duplicate identifiers: ${duplicates.join(', ')}`);
+            return;
+        }
 
         // Add this line to capture the initial query
         var initialQuery = {
-            identifiers: document.getElementById('identifiers').value,
+            identifiers: identifiersInput,
             coordinates: document.getElementById('coordinates').value,
             assembly: assembly,
             include5UTR: false,  // Default to false
@@ -37,11 +50,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Modify the payload to include the initial query
         var payload = {
-            identifiers: document.getElementById('identifiers').value.split(/[\s,]+/).filter(Boolean),
+            identifiers: uniqueIdentifiers,  // Use uniqueIdentifiers instead of splitting again
             coordinates: document.getElementById('coordinates').value.trim(),
             assembly: assembly,
-            include5UTR: false,  // Default to false
-            include3UTR: false,  // Default to false
+            include5UTR: false,
+            include3UTR: false,
             initial_query: initialQuery
         };
 
@@ -200,14 +213,18 @@ function updateIdentifiers() {
                 return gene.confidence === '3';
             });
 
-            const coloredGenes = filteredGenes.map(gene => {
+            const geneSymbols = filteredGenes.map(gene => gene.symbol);
+            const uniqueGenes = [...new Set(geneSymbols)]; // Remove duplicates
+            
+            const coloredGenes = uniqueGenes.map(symbol => {
+                const gene = filteredGenes.find(g => g.symbol === symbol);
                 const colorMap = { '3': 'green', '2': 'orange', '1': 'red' };
                 const color = colorMap[gene.confidence] || '';
-                return `<span style="color: ${color};">${gene.symbol}</span>`;
+                return `<span style="color: ${color};">${symbol}</span>`;
             });
 
             console.log('Filtered and colored genes:', coloredGenes);
-            document.getElementById('identifiers').value = coloredGenes.map(gene => gene.replace(/<[^>]+>/g, '')).join(', ');
+            document.getElementById('identifiers').value = uniqueGenes.join(', ');
             console.log('Set identifiers value:', document.getElementById('identifiers').value);
         })
         .catch(error => console.error('Error fetching gene list:', error))
@@ -246,7 +263,8 @@ function handleCsvFileUpload(event) {
         reader.onload = function(e) {
             const contents = e.target.result;
             const identifiers = contents.split(/[\s,]+/).filter(Boolean);
-            document.getElementById('identifiers').value = identifiers.join(', ');
+            const uniqueIdentifiers = [...new Set(identifiers)]; // Remove duplicates
+            document.getElementById('identifiers').value = uniqueIdentifiers.join(', ');
         };
         reader.readAsText(file);
     }

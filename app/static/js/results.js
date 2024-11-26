@@ -89,7 +89,7 @@ function loadIGV() {
                 name: "Custom BED",
                 type: "annotation",
                 format: "bed",
-                color: "darkgreen",
+                color: "rgb(150, 0, 0)",
                 features: results.map(result => {
                     return {
                         chr: addChrPrefix && !result.loc_region.startsWith('chr') ? 
@@ -253,7 +253,6 @@ function updateFilenamePrefixForAll() {
 
 function downloadRawBed() {
     const results = JSON.parse(document.getElementById('bedContent').value);
-    const filenamePrefix = document.getElementById('bedFileNamePrefix').value;
     const addChrPrefix = document.getElementById('addChrPrefix').checked;
     
     // Create bed content directly from table data
@@ -264,12 +263,11 @@ function downloadRawBed() {
         return `${chrPrefix}${r.loc_region}\t${r.loc_start}\t${r.loc_end}\t${r.gene}`;
     }).join('\n');
     
-    // Download file
+    // Create filename with timestamp
     const timestamp = new Date().toISOString().slice(0,19).replace(/[-:]/g, '').replace('T', '_');
-    const filename = filenamePrefix ? 
-        `${filenamePrefix}_${timestamp}_raw.bed` : 
-        `${timestamp}_raw.bed`;
+    const filename = `raw_bed_${timestamp}.bed`;
         
+    // Download file
     const blob = new Blob([bedContent], { type: 'text/plain' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1171,4 +1169,38 @@ function checkForManePlusTranscripts(results) {
         return true;
     }
     return false;
+}
+
+function refreshIGV() {
+    if (!igvBrowser) return;
+    
+    const results = JSON.parse(document.getElementById('bedContent').value);
+    
+    // Remove existing Custom BED track
+    const tracks = igvBrowser.trackViews.map(tv => tv.track);
+    const customTrackIndex = tracks.findIndex(track => track.name === 'Custom BED');
+    if (customTrackIndex !== -1) {
+        igvBrowser.removeTrack(tracks[customTrackIndex]);
+    }
+    
+    // Add new track with updated data
+    const bedTrack = {
+        name: 'Custom BED',
+        type: 'annotation',
+        format: 'bed',
+        features: results.map(result => ({
+            chr: addChrPrefix && !result.loc_region.startsWith('chr') ? 
+                'chr' + result.loc_region : 
+                result.loc_region,
+            start: parseInt(result.loc_start),
+            end: parseInt(result.loc_end),
+            name: result.gene || 'Unknown',
+            score: 1000,
+            strand: result.strand === -1 ? '-' : '+'
+        })),
+        displayMode: 'EXPANDED',
+        color: 'rgb(150, 0, 0)'
+    };
+    
+    igvBrowser.loadTrack(bedTrack);
 }
