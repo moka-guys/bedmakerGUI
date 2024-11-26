@@ -3,10 +3,14 @@ from wtforms import IntegerField, SubmitField, SelectField, TextAreaField, FileF
 from wtforms.validators import DataRequired, NumberRange, Optional
 
 class SettingsForm(FlaskForm):
-    data_padding = IntegerField('Data Padding', validators=[DataRequired(), NumberRange(min=0)])
-    sambamba_padding = IntegerField('Sambamba Padding', validators=[DataRequired(), NumberRange(min=0)])
-    exomeDepth_padding = IntegerField('ExomeDepth Padding', validators=[DataRequired(), NumberRange(min=0)])
-    cnv_padding = IntegerField('CNV Padding', validators=[DataRequired(), NumberRange(min=0)])
+    data_padding = IntegerField('Data Padding', validators=[DataRequired(), NumberRange(min=0)], default=0)
+    sambamba_padding = IntegerField('Sambamba Padding', validators=[DataRequired(), NumberRange(min=0)], default=0)
+    exomeDepth_padding = IntegerField('ExomeDepth Padding', validators=[DataRequired(), NumberRange(min=0)], default=0)
+    cnv_padding = IntegerField('CNV Padding', validators=[DataRequired(), NumberRange(min=0)], default=0)
+    data_snp_padding = IntegerField('Data SNP Padding', validators=[DataRequired(), NumberRange(min=0)], default=0)
+    sambamba_snp_padding = IntegerField('Sambamba SNP Padding', validators=[DataRequired(), NumberRange(min=0)], default=0)
+    exomeDepth_snp_padding = IntegerField('ExomeDepth SNP Padding', validators=[DataRequired(), NumberRange(min=0)], default=0)
+    cnv_snp_padding = IntegerField('CNV SNP Padding', validators=[DataRequired(), NumberRange(min=0)], default=0)
     data_include_5utr = BooleanField("Include 5' UTR for Data BED")
     data_include_3utr = BooleanField("Include 3' UTR for Data BED")
     sambamba_include_5utr = BooleanField("Include 5' UTR for Sambamba BED")

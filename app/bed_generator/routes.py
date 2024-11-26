@@ -408,40 +408,55 @@ def download_raw_bed():
 @bed_generator_bp.route('/download_custom_bed/<bed_type>', methods=['POST'])
 def download_custom_bed(bed_type):
     try:
-        data = request.json
-        results = data['results']
-        filename_prefix = data.get('filename_prefix', '')
-        add_chr_prefix = data.get('add_chr_prefix', False)
+        data = request.get_json()
+        results = data.get('results', [])
+        filename_prefix = data.get('filename', 'custom')
+        add_chr_prefix = data.get('addChrPrefix', False)
         
         # Get settings from database
-        settings = Settings.query.first()
-        if not settings:
-            return jsonify({'error': 'Settings not found'}), 500
+        settings = Settings.get_settings()
+        
+        # Debug log the settings
+        current_app.logger.debug(f"Settings for {bed_type}:")
+        current_app.logger.debug(f"Regular padding: {getattr(settings, f'{bed_type}_padding', 0)}")
+        current_app.logger.debug(f"SNP padding: {getattr(settings, f'{bed_type}_snp_padding', 0)}")
+        
+        # Get the appropriate padding based on whether it's a SNP or not
+        for result in results:
+            # Debug log the result before processing
+            current_app.logger.debug(f"Processing result: {result}")
+            current_app.logger.debug(f"Is SNP: {result.get('is_snp', False)}")
             
-        # Convert settings to dictionary with the correct format expected by generate_bed_file
-        settings_dict = {
-            'data_padding': getattr(settings, 'data_padding', 0),
-            'sambamba_padding': getattr(settings, 'sambamba_padding', 0),
-            'exomeDepth_padding': getattr(settings, 'exomeDepth_padding', 0),
-            'cnv_padding': getattr(settings, 'cnv_padding', 0),
-            'data_include_5utr': getattr(settings, 'data_include_5utr', False),
-            'data_include_3utr': getattr(settings, 'data_include_3utr', False),
-            'sambamba_include_5utr': getattr(settings, 'sambamba_include_5utr', False),
-            'sambamba_include_3utr': getattr(settings, 'sambamba_include_3utr', False),
-            'exomeDepth_include_5utr': getattr(settings, 'exomeDepth_include_5utr', False),
-            'exomeDepth_include_3utr': getattr(settings, 'exomeDepth_include_3utr', False),
-            'cnv_include_5utr': getattr(settings, 'cnv_include_5utr', False),
-            'cnv_include_3utr': getattr(settings, 'cnv_include_3utr', False)
-        }
+            # Convert coordinates to integers
+            result['loc_start'] = int(result['loc_start'])
+            result['loc_end'] = int(result['loc_end'])
+            if 'original_loc_start' in result:
+                result['original_loc_start'] = int(result['original_loc_start'])
+            if 'original_loc_end' in result:
+                result['original_loc_end'] = int(result['original_loc_end'])
+            
+            # Apply appropriate padding based on whether it's a SNP
+            if result.get('is_snp', False) or result.get('rsid'):  # Check both is_snp flag and rsid presence
+                padding = int(getattr(settings, f'{bed_type}_snp_padding', 0))
+                current_app.logger.debug(f"Applying SNP padding: {padding}")
+            else:
+                padding = int(getattr(settings, f'{bed_type}_padding', 0))
+                current_app.logger.debug(f"Applying regular padding: {padding}")
+            
+            result['_padding'] = padding
+            
+            # Debug log the result after processing
+            current_app.logger.debug(f"Result after padding applied: {result}")
         
         # Generate BED file using database settings
-        bed_content, filename = generate_bed_file(
-            bed_type, 
-            results,
-            filename_prefix, 
-            settings_dict, 
-            add_chr_prefix
+        from app.bed_generator.bed_generator import BedGenerator
+        bed_content = BedGenerator.create_formatted_bed(
+            results=results,
+            format_type=bed_type,
+            add_chr_prefix=add_chr_prefix
         )
+        
+        filename = f"{filename_prefix}_{bed_type}.bed"
         
         return jsonify({
             'content': bed_content,
@@ -449,6 +464,7 @@ def download_custom_bed(bed_type):
         })
     except Exception as e:
         current_app.logger.error(f"Error in download_custom_bed: {str(e)}")
+        current_app.logger.error(f"Full traceback:", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 @bed_generator_bp.route('/get_published_bed_files')

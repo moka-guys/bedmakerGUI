@@ -11,7 +11,7 @@ Functions:
 - create_raw_bed: Creates raw BED file content without additional formatting.
 """
 
-from typing import List, Dict
+from typing import List, Dict, Union
 from flask import current_app
 import os
 
@@ -45,36 +45,47 @@ class BedGenerator:
         }
     }
 
-    @staticmethod
-    def format_bed_line(r: Dict, padding: int, format_type: str, add_chr_prefix: bool = False) -> str:
-        """Formats a single BED line based on the specified format type."""
-        if format_type not in BedGenerator.BED_FORMATS:
-            raise ValueError("Invalid format type")
+    @classmethod
+    def format_bed_line(cls, result: Dict, padding: int, format_type: str, add_chr_prefix: bool = False) -> str:
+        """Formats a single BED line."""
+        try:
+            # Ensure padding is an integer
+            padding = int(padding)
+            
+            # Format chromosome/region
+            loc_region = str(result['loc_region'])
+            if add_chr_prefix and not loc_region.startswith('chr'):
+                loc_region = f'chr{loc_region}'
 
-        # Basic BED fields
-        loc_region = f"chr{r['loc_region']}" if add_chr_prefix else r['loc_region']
-        
-        # Skip padding for genomic coordinates
-        if r.get('is_genomic_coordinate', False):
-            loc_start = int(r['loc_start'])
-            loc_end = int(r['loc_end'])
-        else:
             # Get strand information (default to forward/1 if not specified)
-            strand = r.get('strand', 1)
+            strand = int(result.get('loc_strand', 1))
+            
+            # Use the stored original positions if available and ensure they're integers
+            original_start = int(result.get('original_loc_start', result['loc_start']))
+            original_end = int(result.get('original_loc_end', result['loc_end']))
             
             # Apply padding based on strand direction
             if strand > 0:  # Forward strand
-                loc_start = int(r['loc_start']) - padding
-                loc_end = int(r['loc_end']) + padding
+                loc_start = original_start - padding
+                loc_end = original_end + padding
             else:  # Reverse strand
-                loc_start = int(r['loc_start']) - padding
-                loc_end = int(r['loc_end']) + padding
-        
-        # Get additional fields based on format
-        format_config = BedGenerator.BED_FORMATS[format_type]
-        additional_fields = [field_func(r, padding) for field_func in format_config['fields']]
-        
-        return '\t'.join([loc_region, str(loc_start), str(loc_end)] + additional_fields)
+                loc_start = original_start - padding
+                loc_end = original_end + padding
+            
+            # Get additional fields based on format
+            format_config = cls.BED_FORMATS.get(format_type)
+            if not format_config:
+                raise ValueError(f"Unknown format type: {format_type}")
+            
+            additional_fields = [field_func(result, padding) for field_func in format_config['fields']]
+            
+            return '\t'.join([loc_region, str(loc_start), str(loc_end)] + additional_fields)
+            
+        except Exception as e:
+            current_app.logger.error(f"Error in format_bed_line: {str(e)}")
+            current_app.logger.error(f"Result: {result}")
+            current_app.logger.error(f"Padding: {padding}, type: {type(padding)}")
+            raise
 
     @classmethod
     def create_bed(cls, results: List[Dict], padding: int, format_type: str, add_chr_prefix: bool = False) -> str:
@@ -82,9 +93,30 @@ class BedGenerator:
 
     # Single factory method for generating BED content in any supported format
     @classmethod
-    def create_formatted_bed(cls, results: List[Dict], format_type: str, padding: int = 0, add_chr_prefix: bool = False) -> str:
-        """Factory method to create BED content in any supported format."""
-        return cls.create_bed(results, padding, format_type, add_chr_prefix)
+    def create_formatted_bed(cls, results, format_type, add_chr_prefix=False):
+        """Creates formatted BED file content."""
+        bed_lines = []
+        for result in results:
+            try:
+                # Get the padding from the result's _padding field
+                padding = int(result.get('_padding', 0))
+                
+                current_app.logger.debug(f"Processing result with padding {padding}: {result}")
+                
+                bed_line = cls.format_bed_line(
+                    result=result,
+                    padding=padding,  # Pass the padding value correctly
+                    format_type=format_type,
+                    add_chr_prefix=add_chr_prefix
+                )
+                bed_lines.append(bed_line)
+            except Exception as e:
+                current_app.logger.error(f"Error formatting BED line for result {result}: {str(e)}")
+                current_app.logger.error(f"Padding value: {result.get('_padding')}, type: {type(result.get('_padding'))}")
+                current_app.logger.error(f"Full traceback:", exc_info=True)
+                continue
+        
+        return '\n'.join(bed_lines)
 
     @staticmethod
     def create_raw_bed(results: List[Dict], add_chr_prefix: bool = False) -> str:

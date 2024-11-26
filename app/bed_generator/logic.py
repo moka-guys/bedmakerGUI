@@ -165,25 +165,17 @@ def generate_bed_file(bed_type: str, results: List[Dict[str, Any]], filename_pre
         bed_content = BedGenerator.create_raw_bed(results, add_chr_prefix)
         filename = f'{filename_prefix}_raw.bed' if filename_prefix else 'raw.bed'
     else:
-        # Map bed_type to settings
+        # Update padding map to include SNP-specific padding
         padding_map = {
-            'data': settings.get('data_padding', 0),
-            'sambamba': settings.get('sambamba_padding', 0),
-            'exome_depth': settings.get('exomeDepth_padding', 0),
-            'cnv': settings.get('cnv_padding', 0)
+            'data': (settings.get('data_padding', 0), settings.get('data_snp_padding', 0)),
+            'sambamba': (settings.get('sambamba_padding', 0), settings.get('sambamba_snp_padding', 0)),
+            'exome_depth': (settings.get('exomeDepth_padding', 0), settings.get('exomeDepth_snp_padding', 0)),
+            'cnv': (settings.get('cnv_padding', 0), settings.get('cnv_snp_padding', 0))
         }
         
-        utr_settings = {
-            'data': (settings.get('data_include_5utr', False), settings.get('data_include_3utr', False)),
-            'sambamba': (settings.get('sambamba_include_5utr', False), settings.get('sambamba_include_3utr', False)),
-            'exome_depth': (settings.get('exomeDepth_include_5utr', False), settings.get('exomeDepth_include_3utr', False)),
-            'cnv': (settings.get('cnv_include_5utr', False), settings.get('cnv_include_3utr', False))
-        }
+        # Get regular and SNP padding for the selected bed type
+        regular_padding, snp_padding = padding_map.get(bed_type.lower(), (0, 0))
         
-        padding = padding_map.get(bed_type.lower(), 0)
-        include_5utr, include_3utr = utr_settings.get(bed_type.lower(), (False, False))
-        
-        # Process results with UTR settings using existing UTR data
         processed_results = []
         for result in results:
             if result.get('is_genomic_coordinate', False):
@@ -191,30 +183,22 @@ def generate_bed_file(bed_type: str, results: List[Dict[str, Any]], filename_pre
                 continue
                 
             processed = result.copy()
-            if 'full_loc_start' in result and 'full_loc_end' in result:
-                # Start with full coordinates
-                new_start = result['full_loc_start']
-                new_end = result['full_loc_end']
-
-                if result.get('strand', 1) == 1:  # Positive strand
-                    if not include_5utr and result.get('five_prime_utr_end'):
-                        new_start = max(new_start, result['five_prime_utr_end'])
-                    if not include_3utr and result.get('three_prime_utr_start'):
-                        new_end = min(new_end, result['three_prime_utr_start'])
-                else:  # Negative strand
-                    if not include_5utr and result.get('five_prime_utr_end'):
-                        new_end = min(new_end, result['five_prime_utr_end'])
-                    if not include_3utr and result.get('three_prime_utr_start'):
-                        new_start = max(new_start, result['three_prime_utr_start'])
+            # Determine if this is a SNP entry
+            is_snp = bool(result.get('rsid')) or result.get('is_snp', False)
+            
+            # Apply appropriate padding
+            padding = snp_padding if is_snp else regular_padding
+            processed['_padding'] = padding
+            
+            # Store original positions if not already present
+            if 'original_loc_start' not in processed:
+                processed['original_loc_start'] = processed['loc_start']
+            if 'original_loc_end' not in processed:
+                processed['original_loc_end'] = processed['loc_end']
                 
-                processed['loc_start'] = new_start
-                processed['loc_end'] = new_end
-                processed['_padding'] = padding
-                processed_results.append(processed)
-            else:
-                processed_results.append(processed)
+            processed_results.append(processed)
         
-        bed_content = BedGenerator.create_formatted_bed(processed_results, bed_type.lower(), padding, add_chr_prefix)
+        bed_content = BedGenerator.create_formatted_bed(processed_results, bed_type.lower(), add_chr_prefix=add_chr_prefix)
         filename = f'{filename_prefix}_{bed_type}.bed' if filename_prefix else f'{bed_type}.bed'
     
     return bed_content, filename

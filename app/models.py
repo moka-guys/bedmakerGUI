@@ -104,6 +104,10 @@ class Settings(db.Model):
     exomeDepth_include_3utr = db.Column(db.Boolean, default=False)
     cnv_include_5utr = db.Column(db.Boolean, default=False)
     cnv_include_3utr = db.Column(db.Boolean, default=False)
+    data_snp_padding = db.Column(db.Integer, default=0, nullable=False)
+    sambamba_snp_padding = db.Column(db.Integer, default=0, nullable=False)
+    exomeDepth_snp_padding = db.Column(db.Integer, default=0, nullable=False)
+    cnv_snp_padding = db.Column(db.Integer, default=0, nullable=False)
 
     @classmethod
     def get_settings(cls):
@@ -127,7 +131,11 @@ class Settings(db.Model):
             'exomeDepth_include_5utr': self.exomeDepth_include_5utr,
             'exomeDepth_include_3utr': self.exomeDepth_include_3utr,
             'cnv_include_5utr': self.cnv_include_5utr,
-            'cnv_include_3utr': self.cnv_include_3utr
+            'cnv_include_3utr': self.cnv_include_3utr,
+            'data_snp_padding': self.data_snp_padding,
+            'sambamba_snp_padding': self.sambamba_snp_padding,
+            'exomeDepth_snp_padding': self.exomeDepth_snp_padding,
+            'cnv_snp_padding': self.cnv_snp_padding
         }
 
     def update_from_form(self, form):
@@ -137,7 +145,8 @@ class Settings(db.Model):
             'data_include_5utr', 'data_include_3utr',
             'sambamba_include_5utr', 'sambamba_include_3utr',
             'exomeDepth_include_5utr', 'exomeDepth_include_3utr',
-            'cnv_include_5utr', 'cnv_include_3utr'
+            'cnv_include_5utr', 'cnv_include_3utr',
+            'data_snp_padding', 'sambamba_snp_padding', 'exomeDepth_snp_padding', 'cnv_snp_padding'
         ]
         for field in fields:
             setattr(self, field, getattr(form, field).data)
@@ -147,10 +156,15 @@ class Settings(db.Model):
         """Populates a form with current settings values."""
         fields = [
             'data_padding', 'sambamba_padding', 'exomeDepth_padding', 'cnv_padding',
+            'data_snp_padding', 'sambamba_snp_padding', 'exomeDepth_snp_padding', 'cnv_snp_padding',
             'data_include_5utr', 'data_include_3utr',
             'sambamba_include_5utr', 'sambamba_include_3utr',
             'exomeDepth_include_5utr', 'exomeDepth_include_3utr',
             'cnv_include_5utr', 'cnv_include_3utr'
         ]
         for field in fields:
-            getattr(form, field).data = getattr(self, field)
+            value = getattr(self, field)
+            if value is None and 'padding' in field:
+                value = 0  # Set default value for padding fields
+            if hasattr(form, field):
+                getattr(form, field).data = value
