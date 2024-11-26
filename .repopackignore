@@ -1,0 +1,13 @@
+*.txt
+*.csv
+*.tsv
+*.jsonl
+*.pyc
+*.log
+*.repopack
+*.json
+*.cursorignore
+*.repopackignore
+*.cursorrules
+*.db
+*.svg

@@ -27,7 +27,7 @@ from app.bed_generator.utils import (
 )
 from app.bed_generator.logic import process_form_data, store_results_in_session, process_bulk_data, get_mane_plus_clinical_identifiers, generate_bed_file
 from app.forms import SettingsForm, BedGeneratorForm
-from app.bed_generator.bed_generator import generate_bed_files
+from app.bed_generator.bed_generator import generate_bed_files, BedGenerator
 from app.models import BedFile, Settings, BedEntry
 from app.bed_generator.database import store_bed_file
 import traceback
@@ -415,58 +415,78 @@ def download_custom_bed(bed_type):
         
         # Get settings from database
         settings = Settings.get_settings()
-        
-        # Debug log the settings
-        current_app.logger.debug(f"Settings for {bed_type}:")
-        current_app.logger.debug(f"Regular padding: {getattr(settings, f'{bed_type}_padding', 0)}")
-        current_app.logger.debug(f"SNP padding: {getattr(settings, f'{bed_type}_snp_padding', 0)}")
-        
-        # Add debug logging
-        current_app.logger.debug(f"Processing {bed_type} BED file")
-        current_app.logger.debug(f"Settings: {settings.to_dict()}")
+        print(f"\nDEBUG: Processing {bed_type} download")
+        print(f"Settings: {settings.to_dict()}")
+        print(f"Initial results: {results}")
         
         # Convert bed_type to match database column names
         db_type = {
             'data': 'data',
             'sambamba': 'sambamba',
-            'exome_depth': 'exomeDepth',  # Match the database column name exactly
+            'exome_depth': 'exomeDepth',
             'cnv': 'cnv'
         }.get(bed_type, bed_type)
         
-        # Get the appropriate padding based on whether it's a SNP or not
-        for result in results:
-            # Debug log the result before processing
-            current_app.logger.debug(f"Processing result: {result}")
-            current_app.logger.debug(f"Is SNP: {result.get('is_snp', False)}")
-            
-            # Convert coordinates to integers
-            result['loc_start'] = int(result['loc_start'])
-            result['loc_end'] = int(result['loc_end'])
-            if 'original_loc_start' in result:
-                result['original_loc_start'] = int(result['original_loc_start'])
-            if 'original_loc_end' in result:
-                result['original_loc_end'] = int(result['original_loc_end'])
-            
-            # Apply appropriate padding based on whether it's a SNP
-            if result.get('is_snp', False) or result.get('rsid'):
-                padding = int(getattr(settings, f'{db_type}_snp_padding', 0))  # Use db_type here
-                current_app.logger.debug(f"Applying SNP padding: {padding}")
-            else:
-                padding = int(getattr(settings, f'{db_type}_padding', 0))  # Use db_type here
-                current_app.logger.debug(f"Applying regular padding: {padding}")
-            
-            result['_padding'] = padding
-            
-            # Debug log the result after processing
-            current_app.logger.debug(f"Result after padding applied: {result}")
+        # Get UTR settings for this bed type
+        include_5utr = getattr(settings, f'{db_type}_include_5utr', False)
+        include_3utr = getattr(settings, f'{db_type}_include_3utr', False)
         
-        # Generate BED file using database settings
-        from app.bed_generator.bed_generator import BedGenerator
+        print(f"UTR settings for {db_type}: 5'UTR={include_5utr}, 3'UTR={include_3utr}")
+        
+        # Process results with UTR settings
+        processed_results = []
+        for result in results:
+            processed = result.copy()
+            
+            # Skip UTR processing for genomic coordinates
+            if result.get('is_genomic_coordinate', False):
+                processed_results.append(processed)
+                continue
+            
+            # If UTRs are enabled and full coordinates are available, use them
+            if 'full_loc_start' in result and 'full_loc_end' in result:
+                if include_5utr and include_3utr:
+                    # Use full coordinates when both UTRs are enabled
+                    processed['loc_start'] = result['full_loc_start']
+                    processed['loc_end'] = result['full_loc_end']
+                else:
+                    # Start with full coordinates and adjust based on UTR settings
+                    new_start = result['full_loc_start']
+                    new_end = result['full_loc_end']
+                    
+                    if result.get('strand', 1) == 1:  # Positive strand
+                        if not include_5utr and result.get('five_prime_utr_end'):
+                            new_start = result['five_prime_utr_end']
+                        if not include_3utr and result.get('three_prime_utr_start'):
+                            new_end = result['three_prime_utr_start']
+                    else:  # Negative strand
+                        if not include_5utr and result.get('five_prime_utr_end'):
+                            new_end = result['five_prime_utr_end']
+                        if not include_3utr and result.get('three_prime_utr_start'):
+                            new_start = result['three_prime_utr_start']
+                    
+                    processed['loc_start'] = new_start
+                    processed['loc_end'] = new_end
+            
+            # Apply padding
+            padding = int(getattr(settings, f'{db_type}_padding', 0))
+            if result.get('is_snp', False) or result.get('rsid'):
+                padding = int(getattr(settings, f'{db_type}_snp_padding', 0))
+            
+            processed['_padding'] = padding
+            processed_results.append(processed)
+            
+            print(f"Processed result: {processed}")  # Debug print
+        
+        # Generate BED file
         bed_content = BedGenerator.create_formatted_bed(
-            results=results,
-            format_type=db_type,  # Use the converted format type
+            results=processed_results,
+            format_type=db_type,
             add_chr_prefix=add_chr_prefix
         )
+        
+        # Debug print the actual BED content
+        print(f"\nGenerated BED content:\n{bed_content}")
         
         filename = f"{filename_prefix}_{bed_type}.bed"
         
@@ -476,7 +496,7 @@ def download_custom_bed(bed_type):
         })
     except Exception as e:
         current_app.logger.error(f"Error in download_custom_bed: {str(e)}")
-        current_app.logger.error(f"Full traceback:", exc_info=True)
+        current_app.logger.error("Full traceback:", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 @bed_generator_bp.route('/get_published_bed_files')

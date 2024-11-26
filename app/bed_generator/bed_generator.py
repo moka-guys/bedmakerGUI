@@ -49,42 +49,43 @@ class BedGenerator:
     def format_bed_line(cls, result: Dict, padding: int, format_type: str, add_chr_prefix: bool = False) -> str:
         """Formats a single BED line."""
         try:
-            # Ensure padding is an integer
-            padding = int(padding)
+            print(f"Formatting BED line for result: {result}")  # Debug print
             
             # Format chromosome/region
             loc_region = str(result['loc_region'])
             if add_chr_prefix and not loc_region.startswith('chr'):
                 loc_region = f'chr{loc_region}'
 
-            # Get strand information (default to forward/1 if not specified)
-            strand = int(result.get('loc_strand', 1))
+            # Get coordinates - use the processed coordinates directly
+            start = int(result['loc_start'])
+            end = int(result['loc_end'])
             
-            # Use the stored original positions if available and ensure they're integers
-            original_start = int(result.get('original_loc_start', result['loc_start']))
-            original_end = int(result.get('original_loc_end', result['loc_end']))
+            print(f"Initial coordinates: start={start}, end={end}")  # Debug print
             
-            # Apply padding based on strand direction
-            if strand > 0:  # Forward strand
-                loc_start = original_start - padding
-                loc_end = original_end + padding
-            else:  # Reverse strand
-                loc_start = original_start - padding
-                loc_end = original_end + padding
+            # Apply padding if specified in the result
+            padding = int(result.get('_padding', 0))
+            if padding > 0:
+                start = max(0, start - padding)
+                end = end + padding
+                
+            print(f"After padding: start={start}, end={end}")  # Debug print
+
+            # Format the basic BED fields (chromosome, start, end)
+            bed_line = f"{loc_region}\t{start}\t{end}"
             
-            # Get additional fields based on format
-            format_config = cls.BED_FORMATS.get(format_type)
-            if not format_config:
-                raise ValueError(f"Unknown format type: {format_type}")
+            # Add format-specific fields
+            if format_type in cls.BED_FORMATS:
+                format_fields = cls.BED_FORMATS[format_type]['fields']
+                additional_fields = [field(result, padding) for field in format_fields]
+                bed_line += '\t' + '\t'.join(additional_fields)
             
-            additional_fields = [field_func(result, padding) for field_func in format_config['fields']]
-            
-            return '\t'.join([loc_region, str(loc_start), str(loc_end)] + additional_fields)
+            print(f"Final BED line: {bed_line}")  # Debug print
+            return bed_line
             
         except Exception as e:
-            current_app.logger.error(f"Error in format_bed_line: {str(e)}")
+            current_app.logger.error(f"Error formatting BED line: {str(e)}")
             current_app.logger.error(f"Result: {result}")
-            current_app.logger.error(f"Padding: {padding}, type: {type(padding)}")
+            current_app.logger.error(f"Padding: {padding}")
             raise
 
     @classmethod
@@ -93,27 +94,24 @@ class BedGenerator:
 
     # Single factory method for generating BED content in any supported format
     @classmethod
-    def create_formatted_bed(cls, results, format_type, add_chr_prefix=False):
+    def create_formatted_bed(cls, results: List[Dict], format_type: str, add_chr_prefix: bool = False) -> str:
         """Creates formatted BED file content."""
+        print(f"\nCreating formatted BED with format_type: {format_type}")  # Debug print
         bed_lines = []
+        
         for result in results:
             try:
-                # Get the padding from the result's _padding field
-                padding = int(result.get('_padding', 0))
-                
-                current_app.logger.debug(f"Processing result with padding {padding}: {result}")
-                
+                print(f"\nProcessing result for BED line: {result}")  # Debug print
                 bed_line = cls.format_bed_line(
                     result=result,
-                    padding=padding,  # Pass the padding value correctly
+                    padding=result.get('_padding', 0),  # Get padding from result
                     format_type=format_type,
                     add_chr_prefix=add_chr_prefix
                 )
                 bed_lines.append(bed_line)
             except Exception as e:
                 current_app.logger.error(f"Error formatting BED line for result {result}: {str(e)}")
-                current_app.logger.error(f"Padding value: {result.get('_padding')}, type: {type(result.get('_padding'))}")
-                current_app.logger.error(f"Full traceback:", exc_info=True)
+                current_app.logger.error("Full traceback:", exc_info=True)
                 continue
         
         return '\n'.join(bed_lines)

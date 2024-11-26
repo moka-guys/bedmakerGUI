@@ -27,6 +27,7 @@ fetch('/bed_generator/settings')
 document.addEventListener('DOMContentLoaded', function () {
     // Store initial state WITHOUT filtering
     const initialResults = JSON.parse(document.getElementById('bedContent').value);
+    console.log('Setting Original Results:', initialResults);
     originalResults = initialResults;
     
     // Check for MANE Plus Clinical transcripts
@@ -281,19 +282,35 @@ function downloadRawBed() {
 }
 
 function downloadCustomBed(bedType) {
-    const results = JSON.parse(document.getElementById('bedContent').value);
+    // Debug logs
+    console.log('Original Results:', originalResults);
+    console.log('Current Results:', JSON.parse(document.getElementById('bedContent').value));
+    
+    if (!originalResults) {
+        console.error('Original results not found');
+        alert('Debug: Original results are missing!');
+        return;
+    }
+
     // Use a default filename format: type_YYYYMMDD.bed
     const today = new Date();
     const dateStr = today.toISOString().slice(0,10).replace(/-/g, '');
     const filename = `${bedType}_${dateStr}`; // Default filename format
     
+    // Additional debug log before sending request
+    console.log('Sending to server:', {
+        results: originalResults,
+        filename: filename,
+        addChrPrefix: addChrPrefix
+    });
+
     fetch('/bed_generator/download_custom_bed/' + bedType, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            results: results,
+            results: originalResults,
             filename: filename,
             addChrPrefix: addChrPrefix
         })
