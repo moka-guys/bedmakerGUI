@@ -50,11 +50,6 @@ def bed_file_details(file_id):
     bed_file = BedFile.query.options(db.joinedload(BedFile.entries)).get_or_404(file_id)
     published_files = BedFile.query.filter_by(status='published').all()
     
-    # Parse the warnings for each entry
-    for entry in bed_file.entries:
-        if entry.warning:
-            entry.warning = json.loads(entry.warning)
-    
     # Find the previous version of the file
     previous_version = None
     if bed_file.status == 'pending':
@@ -65,9 +60,9 @@ def bed_file_details(file_id):
             previous_version = BedFile.query.filter_by(filename=previous_version_name, status='published').first()
     
     return render_template('bed_manager/bed_file_details.html', 
-                           bed_file=bed_file, 
-                           published_files=published_files, 
-                           previous_version=previous_version)
+                         bed_file=bed_file, 
+                         published_files=published_files, 
+                         previous_version=previous_version)
 
 @bed_manager_bp.route('/authorise/<int:file_id>', methods=['POST'])
 @login_required
@@ -138,8 +133,7 @@ def authorise_bed_file(file_id):
                     exon_number=entry.exon_number,
                     transcript_biotype=entry.transcript_biotype,
                     mane_transcript=entry.mane_transcript,
-                    mane_transcript_type=entry.mane_transcript_type,
-                    warning=entry.warning
+                    status=entry.status
                 )
                 db.session.add(new_entry)
 
@@ -172,17 +166,11 @@ def reload_bed_results(file_id):
             'exon_number': entry.exon_number,
             'transcript_biotype': entry.transcript_biotype,
             'mane_transcript': entry.mane_transcript,
-            'mane_transcript_type': entry.mane_transcript_type,
+            'status': entry.status
         }
         for entry in bed_file.entries
     ]
     session['assembly'] = bed_file.assembly
-    
-    # Add warnings to session if they exist
-    if bed_file.warning:
-        session['warnings'] = json.loads(bed_file.warning)
-    else:
-        session.pop('warnings', None)  # Remove warnings if they don't exist
     
     return jsonify({
         'success': True,

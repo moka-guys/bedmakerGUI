@@ -56,39 +56,27 @@ class BedEntry(db.Model):
     chromosome = db.Column(db.String(50))
     start = db.Column(db.Integer)
     end = db.Column(db.Integer)
-    gene = db.Column(db.String(100))
     entrez_id = db.Column(db.String(50))
+    gene = db.Column(db.String(100))
     accession = db.Column(db.String(50))
     exon_id = db.Column(db.String(50))
     exon_number = db.Column(db.Integer)
     transcript_biotype = db.Column(db.String(50))
     mane_transcript = db.Column(db.String(50))
-    mane_transcript_type = db.Column(db.String(50))
-    warning = db.Column(db.String(255))
+    status = db.Column(db.String(100))
 
     bed_file = db.relationship('BedFile', back_populates='entries')
 
     @classmethod
-    def create_entries(cls, bed_file_id: int, results: List[Dict], padding_5: int = 0, padding_3: int = 0) -> List['BedEntry']:
-        """
-        Creates BED entries for a given file ID.
-        
-        Args:
-            bed_file_id: ID of the parent BED file
-            results: List of result dictionaries containing entry data
-            padding_5: 5' padding to apply (default: 0)
-            padding_3: 3' padding to apply (default: 0)
-            
-        Returns:
-            List of created BedEntry instances
-        """
+    def create_entries(cls, bed_file_id: int, results: List[Dict]) -> List['BedEntry']:
+        """Creates BED entries for a given file ID."""
         entries = []
         for result in results:
             entry = cls(
                 bed_file_id=bed_file_id,
                 chromosome=result['loc_region'],
-                start=int(result['loc_start']) - padding_5,
-                end=int(result['loc_end']) + padding_3,
+                start=result['loc_start'],
+                end=result['loc_end'],
                 entrez_id=result['entrez_id'],
                 gene=result['gene'],
                 accession=result['accession'],
@@ -96,8 +84,7 @@ class BedEntry(db.Model):
                 exon_number=result.get('exon_number'),
                 transcript_biotype=result.get('transcript_biotype'),
                 mane_transcript=result.get('mane_transcript'),
-                mane_transcript_type=result.get('mane_transcript_type'),
-                warning=json.dumps(result.get('warning')) if result.get('warning') else None
+                status=result.get('status')
             )
             entries.append(entry)
             db.session.add(entry)

@@ -14,34 +14,25 @@
                 <th>Exon ID</th>
                 <th>Exon Number</th>
                 <th>Transcript Biotype</th>
-                <th>MANE Transcript</th>
-                <th>MANE Transcript Type</th>
-                <th>Info</th>
+                <th>Ensembl Transcript ID</th>
+                <th>Status</th>
             </tr>
         </thead>
         <tbody>
             {% for entry in bed_file.entries %}
-                <tr>
-                    <td>{{ entry.chromosome }}</td>
-                    <td>{{ entry.start }}</td>
-                    <td>{{ entry.end }}</td>
-                    <td>{{ entry.entrez_id }}</td>
-                    <td>{{ entry.gene }}</td>
-                    <td>{{ entry.accession }}</td>
-                    <td>{{ entry.exon_id }}</td>
-                    <td>{{ entry.exon_number }}</td>
-                    <td>{{ entry.transcript_biotype }}</td>
-                    <td>{{ entry.mane_transcript }}</td>
-                    <td>{{ entry.mane_transcript_type }}</td>
-                    <td {% if entry.warning %} style="background-color: #fdf5ee;" {% endif %}>
-                        {% if entry.warning %}
-                            <span class="text-warning">
-                                <i class="fas fa-exclamation-triangle"></i>
-                            </span>
-                            {{ entry.warning.message }}
-                        {% endif %}
-                    </td>
-                </tr>
+            <tr>
+                <td>{{ entry.chromosome }}</td>
+                <td>{{ entry.start }}</td>
+                <td>{{ entry.end }}</td>
+                <td>{{ entry.entrez_id }}</td>
+                <td>{{ entry.gene }}</td>
+                <td>{{ entry.accession }}</td>
+                <td>{{ entry.exon_id }}</td>
+                <td>{{ entry.exon_number }}</td>
+                <td>{{ entry.transcript_biotype }}</td>
+                <td>{{ entry.mane_transcript }}</td>
+                <td>{{ entry.status }}</td>
+            </tr>
             {% endfor %}
         </tbody>
     </table>
