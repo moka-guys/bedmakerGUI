@@ -922,42 +922,57 @@ function downloadFile(content, filename) {
 }
 
 function handleManePlusTranscripts(results) {
-    const manePlusGenes = new Map();
+    console.log("Starting handleManePlusTranscripts with:", results);
     
-    // First pass: Group transcripts by gene
-    results.forEach(result => {
-        if (result.mane_transcript_type === 'MANE Plus Clinical' || 
-            result.mane_transcript_type === 'MANE Select') {
-            if (!manePlusGenes.has(result.gene)) {
-                manePlusGenes.set(result.gene, []);
-            }
-            manePlusGenes.get(result.gene).push(result);
-        }
-    });
-
-    // Second pass: Filter to only keep genes that have both transcript types
-    for (const [gene, transcripts] of manePlusGenes.entries()) {
-        const hasManePlus = transcripts.some(t => t.mane_transcript_type === 'MANE Plus Clinical');
-        const hasManeSelect = transcripts.some(t => t.mane_transcript_type === 'MANE Select');
+    // Group results by gene and transcript type
+    const geneTranscripts = new Map();
+    
+    for (const result of results) {
+        if (!result.gene || !result.status) continue;
         
-        if (!hasManePlus || !hasManeSelect) {
-            manePlusGenes.delete(gene);
+        if (!geneTranscripts.has(result.gene)) {
+            geneTranscripts.set(result.gene, new Set());
+        }
+        geneTranscripts.get(result.gene).add(result.status);
+    }
+    
+    console.log("Grouped gene transcripts:", Array.from(geneTranscripts.entries()));
+    
+    // Find genes that have both MANE Select and MANE Plus Clinical
+    const genesWithBothTypes = new Map();
+    
+    for (const [gene, statuses] of geneTranscripts.entries()) {
+        console.log(`Checking ${gene} with statuses:`, Array.from(statuses));
+        if (statuses.has('MANE Select') && statuses.has('MANE Plus Clinical')) {
+            console.log(`${gene} has both transcript types`);
+            // Group all results for this gene
+            genesWithBothTypes.set(gene, results.filter(r => r.gene === gene));
         }
     }
-
-    // If we have any genes with both transcript types, show the selection modal
-    if (manePlusGenes.size > 0) {
-        showTranscriptSelectionModal(manePlusGenes);
+    
+    console.log("Genes with both types:", Array.from(genesWithBothTypes.entries()));
+    
+    if (genesWithBothTypes.size > 0) {
+        console.log("Showing transcript selection modal");
+        showTranscriptSelectionModal(genesWithBothTypes);
         return true;
     }
+    
+    console.log("No genes with both transcript types found");
     return false;
 }
 
 function showTranscriptSelectionModal(geneTranscripts) {
+    console.log("Setting up modal with transcripts:", geneTranscripts);
     const optionsContainer = document.getElementById('transcriptOptions');
     optionsContainer.innerHTML = '';
 
     geneTranscripts.forEach((transcripts, gene) => {
+        const maneSelect = transcripts.find(t => t.status === 'MANE Select');
+        const manePlus = transcripts.find(t => t.status === 'MANE Plus Clinical');
+        
+        console.log(`Creating options for ${gene}:`, { maneSelect, manePlus });
+        
         const geneDiv = document.createElement('div');
         geneDiv.className = 'mb-3';
         geneDiv.innerHTML = `
@@ -966,52 +981,74 @@ function showTranscriptSelectionModal(geneTranscripts) {
                 <input class="form-check-input" type="radio" name="transcript_${gene}" 
                        value="mane_select" id="mane_select_${gene}" checked>
                 <label class="form-check-label" for="mane_select_${gene}">
-                    MANE Select (${transcripts.find(t => t.mane_transcript_type === 'MANE Select')?.accession})
+                    MANE Select (${maneSelect?.accession || 'N/A'})
                 </label>
             </div>
             <div class="form-check">
                 <input class="form-check-input" type="radio" name="transcript_${gene}" 
                        value="mane_plus" id="mane_plus_${gene}">
                 <label class="form-check-label" for="mane_plus_${gene}">
-                    MANE Plus Clinical (${transcripts.find(t => t.mane_transcript_type === 'MANE Plus Clinical')?.accession})
+                    MANE Plus Clinical (${manePlus?.accession || 'N/A'})
                 </label>
             </div>
         `;
         optionsContainer.appendChild(geneDiv);
     });
 
-    const modal = new bootstrap.Modal(document.getElementById('maneSelectionModal'));
-    modal.show();
+    const modal = document.getElementById('maneSelectionModal');
+    console.log("Modal element:", modal);
+    if (!modal) {
+        console.error("Modal element not found!");
+        return;
+    }
+    
+    const bootstrapModal = new bootstrap.Modal(modal);
+    console.log("Showing modal");
+    bootstrapModal.show();
 }
 
 function applyTranscriptSelection() {
+    console.log("Applying transcript selection");
     const results = JSON.parse(document.getElementById('bedContent').value);
-    const filteredResults = [];
+    const updatedResults = [];
     
-    // Get all the selections
+    // Get all genes that had selections
+    const selections = new Map();
     document.querySelectorAll('[id^="mane_select_"]').forEach(radio => {
         const gene = radio.id.replace('mane_select_', '');
-        const selection = document.querySelector(`input[name="transcript_${gene}"]:checked`).value;
-        manePlusSelections.set(gene, selection);
+        const selectedType = document.querySelector(`input[name="transcript_${gene}"]:checked`).value;
+        selections.set(gene, selectedType === 'mane_select' ? 'MANE Select' : 'MANE Plus Clinical');
     });
+    
+    console.log("Selected transcript types:", Array.from(selections.entries()));
 
     // Filter results based on selections
     results.forEach(result => {
-        const selection = manePlusSelections.get(result.gene);
-        if (!selection || 
-            (selection === 'mane_select' && result.mane_transcript_type === 'MANE Select') ||
-            (selection === 'mane_plus' && result.mane_transcript_type === 'MANE Plus Clinical')) {
-            filteredResults.push(result);
+        if (!result.gene || !selections.has(result.gene)) {
+            // Keep results for genes that didn't have selections
+            updatedResults.push(result);
+        } else if (result.status === selections.get(result.gene)) {
+            // Keep only the selected transcript type for genes that had selections
+            updatedResults.push(result);
         }
+        // Drop results for unselected transcript types
     });
+    
+    console.log("Updated results:", updatedResults);
 
-    // Update the table and IGV
-    document.getElementById('bedContent').value = JSON.stringify(filteredResults);
-    updateTable(filteredResults);
+    // Update both the current results and originalResults
+    document.getElementById('bedContent').value = JSON.stringify(updatedResults);
+    originalResults = updatedResults;
+    
+    // Update the table with new results
+    updateTable(updatedResults);
+    
+    // Refresh IGV
     refreshIGV();
-
-    // Close the modal
-    bootstrap.Modal.getInstance(document.getElementById('maneSelectionModal')).hide();
+    
+    // Hide the modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('maneSelectionModal'));
+    modal.hide();
 }
 
 function showBedFlowDiagram() {
@@ -1141,4 +1178,42 @@ function updateResults(results) {
     updateTable(results);
     document.getElementById('bedContent').value = JSON.stringify(results);
     refreshIGV();
+}
+
+function checkForManePlusTranscripts(results) {
+    const manePlusGenes = new Map();
+    console.log("Checking for MANE Plus transcripts:", results);
+
+    // First pass: Group transcripts by gene
+    for (const result of results) {
+        if (result.gene && result.status) {  // Changed from mane_transcript_type to status
+            console.log(`Found transcript for ${result.gene}:`, result.status);
+            if (!manePlusGenes.has(result.gene)) {
+                manePlusGenes.set(result.gene, []);
+            }
+            manePlusGenes.get(result.gene).push(result);
+        }
+    }
+
+    console.log("Grouped transcripts:", Array.from(manePlusGenes.entries()));
+
+    // Second pass: Filter to only keep genes that have both transcript types
+    for (const [gene, transcripts] of manePlusGenes.entries()) {
+        const hasManePlus = transcripts.some(t => t.status === 'MANE Plus Clinical');  // Changed from mane_transcript_type
+        const hasManeSelect = transcripts.some(t => t.status === 'MANE Select');  // Changed from mane_transcript_type
+        
+        console.log(`${gene} - Has MANE Plus: ${hasManePlus}, Has MANE Select: ${hasManeSelect}`);
+        
+        if (!hasManePlus || !hasManeSelect) {
+            manePlusGenes.delete(gene);
+        }
+    }
+
+    console.log("Filtered genes with both types:", Array.from(manePlusGenes.entries()));
+
+    if (manePlusGenes.size > 0) {
+        showTranscriptSelectionModal(manePlusGenes);
+        return true;
+    }
+    return false;
 }
