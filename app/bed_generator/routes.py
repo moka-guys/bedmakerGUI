@@ -421,6 +421,18 @@ def download_custom_bed(bed_type):
         current_app.logger.debug(f"Regular padding: {getattr(settings, f'{bed_type}_padding', 0)}")
         current_app.logger.debug(f"SNP padding: {getattr(settings, f'{bed_type}_snp_padding', 0)}")
         
+        # Add debug logging
+        current_app.logger.debug(f"Processing {bed_type} BED file")
+        current_app.logger.debug(f"Settings: {settings.to_dict()}")
+        
+        # Convert bed_type to match database column names
+        db_type = {
+            'data': 'data',
+            'sambamba': 'sambamba',
+            'exome_depth': 'exomeDepth',  # Match the database column name exactly
+            'cnv': 'cnv'
+        }.get(bed_type, bed_type)
+        
         # Get the appropriate padding based on whether it's a SNP or not
         for result in results:
             # Debug log the result before processing
@@ -436,11 +448,11 @@ def download_custom_bed(bed_type):
                 result['original_loc_end'] = int(result['original_loc_end'])
             
             # Apply appropriate padding based on whether it's a SNP
-            if result.get('is_snp', False) or result.get('rsid'):  # Check both is_snp flag and rsid presence
-                padding = int(getattr(settings, f'{bed_type}_snp_padding', 0))
+            if result.get('is_snp', False) or result.get('rsid'):
+                padding = int(getattr(settings, f'{db_type}_snp_padding', 0))  # Use db_type here
                 current_app.logger.debug(f"Applying SNP padding: {padding}")
             else:
-                padding = int(getattr(settings, f'{bed_type}_padding', 0))
+                padding = int(getattr(settings, f'{db_type}_padding', 0))  # Use db_type here
                 current_app.logger.debug(f"Applying regular padding: {padding}")
             
             result['_padding'] = padding
@@ -452,7 +464,7 @@ def download_custom_bed(bed_type):
         from app.bed_generator.bed_generator import BedGenerator
         bed_content = BedGenerator.create_formatted_bed(
             results=results,
-            format_type=bed_type,
+            format_type=db_type,  # Use the converted format type
             add_chr_prefix=add_chr_prefix
         )
         

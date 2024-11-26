@@ -33,7 +33,7 @@ class BedGenerator:
                 lambda r, _: str(r['entrez_id'])
             ]
         },
-        'exome_depth': {
+        'exomeDepth': {
             'fields': [
                 lambda r, _: f"{r['gene']}_{r.get('exon_number', '')}"
             ]
@@ -143,7 +143,7 @@ def generate_bed_files(filename: str, results: List[Dict], settings: Dict) -> No
         'raw': lambda r, p: BedGenerator.create_raw_bed(r, add_chr_prefix=False),
         'data': lambda r, p: BedGenerator.create_formatted_bed(r, 'data', p),
         'sambamba': lambda r, p: BedGenerator.create_formatted_bed(r, 'sambamba', p),
-        'exomeDepth': lambda r, p: BedGenerator.create_formatted_bed(r, 'exome_depth', p),
+        'exomeDepth': lambda r, p: BedGenerator.create_formatted_bed(r, 'exomeDepth', p),
         'CNV': lambda r, p: BedGenerator.create_formatted_bed(r, 'cnv', p)
     }
 
