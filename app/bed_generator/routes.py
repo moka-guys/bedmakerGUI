@@ -36,6 +36,7 @@ from datetime import datetime
 from app import db
 import re
 import requests
+import os
 
 def fetch_panels_from_panelapp():
     """
@@ -305,75 +306,115 @@ def settings():
     return render_template('settings.html', form=form)
 
 @bed_generator_bp.route('/submit_for_review', methods=['POST'])
+@login_required
 def submit_for_review():
-    """
-    Submits a BED file for review in bed_manager.
-
-    Expects JSON data with 'results', 'fileName', 'initialQuery', and optionally 'existing_file_id'.
-
-    Returns:
-        JSON response indicating success or failure, with a message and the new BED file ID if successful.
-    """
     try:
-        data = request.json
+        data = request.get_json()
+        file_name = data.get('fileName')
         results = data.get('results', [])
-        fileName = data.get('fileName', '')
-        initial_query = data.get('initialQuery', {})
-        existing_file_id = data.get('existing_file_id')
+        initial_query = data.get('initialQuery')
+        assembly = data.get('assembly')
+        include_5utr = data.get('include5UTR', False)
+        include_3utr = data.get('include3UTR', False)
 
-        # Extract and standardise assembly information
-        assembly = initial_query.get('assembly', 'GRCh38')
-        assembly_mapping = {'hg19': 'GRCh37', 'hg38': 'GRCh38', 'GRCh37': 'GRCh37', 'GRCh38': 'GRCh38'}
-        assembly = assembly_mapping.get(assembly, 'UNKNOWN')
+        print("\n=== Submit for Review Debug ===")
+        print(f"Initial settings - 5'UTR: {include_5utr}, 3'UTR: {include_3utr}")
 
-        # Common parameters for BED file creation
-        file_params = {
-            'status': 'pending',
-            'submitter_id': current_user.id,
-            'initial_query': json.dumps(initial_query, ensure_ascii=False),
-            'assembly': assembly,
-            'include_3utr': initial_query.get('include3UTR', False),
-            'include_5utr': initial_query.get('include5UTR', False),
-            'warning': collect_warnings(results)
-        }
+        # Store original results in database first
+        bed_file_id = store_bed_file(
+            file_name=file_name,
+            results=results,
+            user_id=current_user.id,
+            initial_query=initial_query,
+            assembly=assembly,
+            include_5utr=include_5utr,
+            include_3utr=include_3utr
+        )
 
-        if existing_file_id:
-            existing_file = BedFile.query.get(existing_file_id)
-            if not existing_file:
-                return jsonify({'success': False, 'error': 'Existing file not found'}), 404
+        # Get settings from database
+        settings = Settings.get_settings()
 
-            # Handle version update
-            new_filename = increment_version_number(existing_file.filename)
-            existing_file.status = 'draft'
-            db.session.add(existing_file)
+        # Generate all BED file formats
+        bed_types = ['data', 'sambamba', 'exomeDepth', 'cnv']
+        for bed_type in bed_types:
+            print(f"\nProcessing {bed_type} BED file:")
+            
+            # Get type-specific settings
+            db_type = bed_type.lower()
+            include_5utr = getattr(settings, f'{db_type}_include_5utr', False)
+            include_3utr = getattr(settings, f'{db_type}_include_3utr', False)
+            padding = getattr(settings, f'{db_type}_padding', 0)
+            
+            processed_results = []
+            for result in results:
+                processed = result.copy()
+                
+                # Skip UTR processing for genomic coordinates
+                if result.get('is_genomic_coordinate', False):
+                    processed_results.append(processed)
+                    continue
+                
+                # Handle SNPs differently
+                if result.get('is_snp', False) or result.get('rsid'):
+                    center = int(result['loc_start'])
+                    processed['loc_start'] = center
+                    processed['loc_end'] = center
+                    processed['_padding'] = padding
+                    processed_results.append(processed)
+                    continue
+                
+                # Process regular transcript entries
+                strand = result.get('strand', 1)
+                
+                # Use the full exon coordinates as starting point
+                new_start = int(result.get('full_loc_start', result['loc_start']))
+                new_end = int(result.get('full_loc_end', result['loc_end']))
+                
+                print(f"Processing {result.get('gene')} - Full: {new_start}-{new_end}")
+                print(f"Strand: {strand}, Include 5'UTR: {include_5utr}, Include 3'UTR: {include_3utr}")
 
-            new_file = BedFile(filename=new_filename, **file_params)
-        elif fileName:
-            new_file = BedFile(filename=fileName, **file_params)
-        else:
-            return jsonify({'success': False, 'error': 'No file name provided and no existing file selected'}), 400
+                if strand == 1:  # Positive strand
+                    if not include_5utr and result.get('five_prime_utr_end'):
+                        if new_start < int(result['five_prime_utr_end']):
+                            new_start = int(result['five_prime_utr_end'])
+                    if not include_3utr and result.get('three_prime_utr_start'):
+                        if new_end > int(result['three_prime_utr_start']):
+                            new_end = int(result['three_prime_utr_start'])
+                else:  # Negative strand
+                    if not include_5utr and result.get('five_prime_utr_end'):
+                        if new_end > int(result['five_prime_utr_end']):
+                            new_end = int(result['five_prime_utr_end'])
+                    if not include_3utr and result.get('three_prime_utr_start'):
+                        if new_start < int(result['three_prime_utr_start']):
+                            new_start = int(result['three_prime_utr_start'])
 
-        # Create and save the new file
-        db.session.add(new_file)
-        db.session.flush()
+                # Skip entries that would be completely removed
+                if new_end <= new_start:
+                    print(f"Skipping entry {result.get('exon_number')} as it would be completely removed by UTR exclusion")
+                    continue
+                    
+                processed['loc_start'] = new_start
+                processed['loc_end'] = new_end
+                processed['_padding'] = padding
+                processed_results.append(processed)
 
-        # Create and save entries without applying padding again
-        BedEntry.create_entries(new_file.id, results)
-        db.session.commit()
+            # Generate BED content
+            bed_content = BedGenerator.create_formatted_bed(
+                results=processed_results,
+                format_type=bed_type,
+                add_chr_prefix=False
+            )
+            
+            filename = f"{file_name}_{bed_type}.bed"
+            save_path = os.path.join(current_app.config['DRAFT_BED_FILES_DIR'], filename)
+            with open(save_path, 'w') as f:
+                f.write(bed_content)
+            print(f"Saved {filename}")
 
-        # Generate BED files
-        if fileName:
-            generate_bed_files(fileName, results, load_settings())
-
-        return jsonify({
-            'success': True,
-            'message': 'BED file created and saved successfully',
-            'bed_file_id': new_file.id
-        })
+        return jsonify({'success': True})
 
     except Exception as e:
         current_app.logger.error(f"Error in submit_for_review: {str(e)}")
-        current_app.logger.error(traceback.format_exc())
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @bed_generator_bp.route('/download_raw_bed', methods=['POST'])

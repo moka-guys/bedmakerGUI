@@ -98,22 +98,31 @@ class BedGenerator:
     @classmethod
     def create_formatted_bed(cls, results: List[Dict], format_type: str, add_chr_prefix: bool = False) -> str:
         """Creates formatted BED file content."""
-        print(f"\nCreating formatted BED with format_type: {format_type}")  # Debug print
-        bed_lines = []
+        print(f"\n=== BedGenerator.create_formatted_bed ===")
+        print(f"Format type: {format_type}")
         
+        bed_lines = []
         for result in results:
             try:
-                print(f"\nProcessing result for BED line: {result}")  # Debug print
+                print(f"\nInput result:")
+                print(f"Gene: {result.get('gene')}")
+                print(f"Coordinates: {result.get('loc_start')}-{result.get('loc_end')}")
+                print(f"Existing padding: {result.get('_padding')}")
+                print(f"UTR info - 5': {result.get('five_prime_utr')}, 3': {result.get('three_prime_utr')}")
+                
+                # Don't apply additional padding if already present
+                padding = 0 if result.get('_padding') is not None else result.get('_padding', 0)
+                print(f"Applied padding: {padding}")
+                
                 bed_line = cls.format_bed_line(
                     result=result,
-                    padding=result.get('_padding', 0),  # Get padding from result
+                    padding=padding,
                     format_type=format_type,
                     add_chr_prefix=add_chr_prefix
                 )
                 bed_lines.append(bed_line)
             except Exception as e:
-                current_app.logger.error(f"Error formatting BED line for result {result}: {str(e)}")
-                current_app.logger.error("Full traceback:", exc_info=True)
+                current_app.logger.error(f"Error formatting BED line: {str(e)}")
                 continue
         
         return '\n'.join(bed_lines)

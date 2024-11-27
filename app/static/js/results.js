@@ -436,24 +436,22 @@ function getInitialQueryAndPadding() {
 }
 
 function submitForReview() {
-    console.log("Starting submitForReview function");
-    const results = JSON.parse(document.getElementById('bedContent').value);
-    const fileName = document.getElementById('bedFileName').value.trim();
-    const indexUrl = document.querySelector('[data-index-url]').getAttribute('data-index-url');
-    const assembly = document.getElementById('genome-select').value;
-
-    const { initialQuery, padding_5, padding_3 } = getInitialQueryAndPadding();
-
-    // Add padding information to initialQuery
-    initialQuery.padding_5 = padding_5;
-    initialQuery.padding_3 = padding_3;
-
-    console.log("Updated Initial Query:", initialQuery);
-
-    if (!fileName && !existingFileId) {
-        alert('Please enter a valid name for your BED file or select an existing file to update.');
+    if (!originalResults) {
+        console.error('Original results not found');
+        alert('Error: Original results are missing!');
         return;
     }
+
+    const fileName = document.getElementById('bedFileName').value.trim();
+    const assembly = document.getElementById('genome-select').value;
+    const include5UTR = document.getElementById('include5UTR').checked;
+    const include3UTR = document.getElementById('include3UTR').checked;
+
+    // Get the initial query from the frontend
+    const { initialQuery } = getInitialQueryAndPadding();
+    // Add UTR settings to initialQuery
+    initialQuery.include5UTR = include5UTR;
+    initialQuery.include3UTR = include3UTR;
 
     fetch('/bed_generator/submit_for_review', {
         method: 'POST',
@@ -461,35 +459,26 @@ function submitForReview() {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
-            results: results,
+            results: originalResults,
             fileName: fileName,
-            initialQuery: initialQuery,
-            assembly: assembly
+            initialQuery: JSON.stringify(initialQuery),
+            assembly: assembly,
+            include5UTR: include5UTR,
+            include3UTR: include3UTR
         }),
     })
-    .then(response => {
-        if (!response.ok) {
-            return response.text().then(text => {
-                throw new Error(`HTTP error! status: ${response.status}, body: ${text}`);
-            });
-        }
-        return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
-        console.log("Response from server:", data);
         if (data.success) {
-            alert('BED file submitted for review successfully! Please note that submissions will remain pending and require final sign-off by an authorised clinical scientist. This can be performed in the Management tab.');
-            
-            const submitModal = bootstrap.Modal.getInstance(document.getElementById('submitModal'));
-            submitModal.hide();
-            window.location.href = indexUrl;
+            alert('BED file submitted for review successfully!');
+            window.location.href = '/bed_manager';
         } else {
-            throw new Error(data.error || 'Unknown error occurred');
+            alert('Error submitting BED file: ' + data.error);
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('An error occurred while submitting the BED file: ' + error.message);
+        alert('Error submitting BED file');
     });
 }
 
