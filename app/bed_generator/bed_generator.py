@@ -58,12 +58,12 @@ class BedGenerator:
             start = int(result['loc_start'])
             end = int(result['loc_end'])
             
-            # Only apply padding if this is not a SNP and padding hasn't been applied
-            if not result.get('is_snp', False) and not result.get('_padding'):
-                padding = int(result.get('_padding', 0))
-                if padding > 0:
-                    start = max(0, start - padding)
-                    end = end + padding
+            # Apply padding if this is not a SNP
+            if not result.get('is_snp', False):
+                padding_value = int(result.get('_padding', padding))
+                if padding_value > 0:
+                    start = max(0, start - padding_value)
+                    end = end + padding_value
             
             # Format the basic BED fields
             bed_line = f"{loc_region}\t{start}\t{end}"
