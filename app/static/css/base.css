@@ -1,14 +1,18 @@
 body {
-    background-color: #f1f0f0;
-    color: var(--text-color);
+    background-color: #f1f0f0 !important;
+    color: #34495e;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
 }
 
 .container {
-    background-color: rgb(255, 255, 255);
-    border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
     padding: 20px;
     margin-top: 20px;
+    margin-bottom: 20px;
 }
 
 .navbar-custom {
@@ -94,29 +98,31 @@ body {
 }
 
 .card {
-    border: none;
-    border-radius: 12px;
-    box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    background-color: var(--card-background);
+    border: none !important;
+    border-radius: 12px !important;
+    box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08) !important;
+    margin-bottom: 20px;
+    background-color: #ffffff !important;
 }
 
 .card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12) !important;
+    transition: all 0.2s ease;
 }
 
 .card-header {
-    background: linear-gradient(45deg, #f8f9fa, #ffffff);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    background: linear-gradient(45deg, #f8f9fa, #ffffff) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
     font-weight: 600;
+    color: #004a99;
     padding: 15px 20px;
-    border-radius: 12px 12px 0 0;
+    border-radius: 12px 12px 0 0 !important;
 }
 
 .card-body {
-    background-color: #fafafa;
-    padding: 10px;
+    background-color: #fafafa !important;
+    padding: 20px !important;
 }
 
 :root {
@@ -196,21 +202,16 @@ select.form-control {
     animation: slideDown 0.3s ease-out;
 }
 
-body {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-}
-
 .content-wrapper {
     flex: 1 0 auto;
     padding-bottom: 60px; /* Adjust this value based on your footer's height */
 }
 
 .footer {
-    background-color: #f8f9fa; /* Or any color that matches your design */
-    padding: 10px 0;
-    width: 100%;
+    background-color: #f8f9fa;
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    padding: 15px 0;
+    margin-top: auto;
 }
 
 .dna-loader {
@@ -325,16 +326,17 @@ body {
 }
 
 .table-responsive {
-    border: 1px solid #dee2e6;
+    background-color: #ffffff !important;
+    border-radius: 8px;
+    overflow: hidden;
 }
 .table {
     margin-bottom: 0;
 }
 .table thead th {
-    position: sticky;
-    top: 0;
-    background-color: #f8f9fa;
-    z-index: 1;
+    background-color: #f8f9fa !important;
+    color: #004a99;
+    font-weight: 600;
 }
 .table-striped tbody tr:nth-of-type(odd) {
     background-color: rgba(0,0,0,.05);
@@ -715,20 +717,21 @@ pre code {
 
 /* BED File Details Modal Styling */
 .modal-title {
-    color: #004a99;
+    color: #004a99 !important;
     font-weight: 600;
     letter-spacing: 0.5px;
 }
 
 .modal-header {
-    background: linear-gradient(45deg, #f8f9fa, #ffffff);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    background: linear-gradient(45deg, #f8f9fa, #ffffff) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
     padding: 15px 20px;
+    border-radius: 12px 12px 0 0 !important;
 }
 
 .modal-body {
-    background-color: #fafafa;
-    padding: 20px;
+    background-color: #fafafa !important;
+    padding: 20px !important;
 }
 
 .details-timestamp {
@@ -740,4 +743,46 @@ pre code {
 .details-timestamp strong {
     color: #004a99;
     font-weight: 500;
+}
+
+/* Update modal styling for consistency */
+.modal-content {
+    border: none !important;
+    border-radius: 12px !important;
+    box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Update text styling */
+h1, h2, h3, h4, h5, h6 {
+    color: #004a99;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+/* Update table styling */
+.table-responsive {
+    background-color: #ffffff !important;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.table thead th {
+    background-color: #f8f9fa !important;
+    color: #004a99;
+    font-weight: 600;
+}
+
+/* Add hover effects */
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12) !important;
+    transition: all 0.2s ease;
+}
+
+/* Update footer styling */
+.footer {
+    background-color: #f8f9fa;
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    padding: 15px 0;
+    margin-top: auto;
 }
