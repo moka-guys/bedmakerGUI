@@ -17,6 +17,7 @@ from typing import Dict, List, Optional
 import time
 import logging
 from dataclasses import dataclass
+import concurrent.futures
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -144,69 +145,94 @@ def fetch_variant_info(rsid: str, assembly: str) -> Optional[VariantInfo]:
     )
 
 def fetch_data_from_tark(identifier: str, assembly: str) -> Optional[List[Dict]]:
+    """
+    Fetches transcript data from TARK API with optimized request handling and parallel processing.
+    """
     print(f"\n=== Fetching data for identifier: {identifier} ===")
     base_accession = identifier.split('.')[0]
     version = identifier.split('.')[1] if '.' in identifier else None
-    user_specified_version = '.' in identifier
-
+    
     search_url = f"{TARK_API_URL}transcript/search/"
     params = {
         'identifier_field': base_accession,
         'expand': 'exons,genes',
         'assembly_name': 'GRCh38' if assembly == 'GRCh38' else 'GRCh37'
     }
-    print(f"TARK API params: {params}")
-
-    # Print raw response
-    response = requests.get(search_url, params=params)
-    print("\n=== Raw TARK API Response ===")
-    print(f"Status Code: {response.status_code}")
-    print(f"Raw Response: {response.text[:100]}...")  # Print first 1000 chars to avoid overwhelming logs
     
-    if response.ok:
-        data = response.json()
-        print("\n=== Parsed Response Data Structure ===")
-        if data:
-            print(f"First result keys: {list(data[0].keys())}")
-            if 'genes' in data[0]:
-                print(f"Genes data structure: {data[0]['genes']}")
-
-    # If version specified, first try to get exact version match
-    if version:
-        version_params = {**params, 'stable_id_version': version}
-        data = ApiClient.get_tark_data(search_url, version_params)
-        print(f"Version specified data response: {data}")
-
-    # If no exact match found or no version specified, proceed with base accession search
+    # Make a single API call to get all transcript data
     data = ApiClient.get_tark_data(search_url, params)
     if not data:
         return None
-
-    transcripts = select_transcripts(data, assembly, version)
-    if not transcripts and assembly == 'GRCh37':
-        # First try to get GRCh38 data to find MANE SELECT
-        grch38_params = {**params, 'assembly_name': 'GRCh38'}
-        grch38_data = ApiClient.get_tark_data(search_url, grch38_params)
-        if grch38_data:
-            grch38_transcripts = select_transcripts(grch38_data, 'GRCh38', version)
-            mane_select = next((t for t in grch38_transcripts if t.get('mane_transcript_type') == 'MANE SELECT'), None)
-            if mane_select:
-                warning = {
-                    'message': f"No direct GRCh37 transcript found. Using GRCh38 MANE SELECT transcript {mane_select['stable_id']} to find matching GRCh37 version",
-                    'identifier': identifier,
-                    'type': 'assembly_mapping'
-                }
-                return fetch_data_from_tark_with_hg38(mane_select['stable_id'], warning)
         
-        # If no MANE SELECT found, try with base accession with a warning
+    # Filter and process transcripts based on assembly and version
+    transcripts = select_transcripts(data, assembly, version)
+    
+    # If no transcripts found for GRCh37, try parallel processing of alternatives
+    if not transcripts and assembly == 'GRCh37':
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            futures = []
+            
+            # Try finding matching GRCh38 MANE SELECT
+            futures.append(executor.submit(
+                process_grch38_mane_select,
+                data, base_accession, identifier
+            ))
+            
+            # Try with base accession in parallel
+            futures.append(executor.submit(
+                process_base_accession,
+                data, base_accession, identifier
+            ))
+            
+            # Use the first successful result
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    result = future.result()
+                    if result:
+                        return result
+                except Exception as e:
+                    logger.error(f"Error in parallel processing: {e}")
+                    continue
+    
+    return process_transcripts(transcripts, base_accession)
+
+def process_grch38_mane_select(data: List[Dict], base_accession: str, identifier: str) -> Optional[List[Dict]]:
+    """Helper function to process GRCh38 MANE SELECT transcripts."""
+    grch38_transcripts = [t for t in data if t['assembly'] == 'GRCh38']
+    mane_select = next((t for t in grch38_transcripts 
+                      if t.get('mane_transcript_type') == 'MANE SELECT'), None)
+    
+    if mane_select:
         warning = {
-            'message': "No MANE SELECT transcript found. Using base accession for GRCh37 lookup - clinical review recommended",
+            'message': f"No direct GRCh37 transcript found. Using GRCh38 MANE SELECT transcript {mane_select['stable_id']} to find matching GRCh37 version",
             'identifier': identifier,
             'type': 'assembly_mapping'
         }
-        return fetch_data_from_tark_with_hg38(base_accession, warning)
+        matching_grch37 = [t for t in data 
+                         if t['assembly'] == 'GRCh37' 
+                         and t['stable_id'] == mane_select['stable_id']]
+        
+        if matching_grch37:
+            selected = max(matching_grch37, 
+                         key=lambda x: int(x.get('stable_id_version', 0)))
+            selected['warning'] = warning
+            return process_transcripts([selected], base_accession)
+    return None
 
-    return process_transcripts(transcripts, base_accession)
+def process_base_accession(data: List[Dict], base_accession: str, identifier: str) -> Optional[List[Dict]]:
+    """Helper function to process base accession transcripts."""
+    warning = {
+        'message': "No MANE SELECT transcript found. Using base accession for GRCh37 lookup - clinical review recommended",
+        'identifier': identifier,
+        'type': 'assembly_mapping'
+    }
+    grch37_transcripts = [t for t in data if t['assembly'] == 'GRCh37']
+    if grch37_transcripts:
+        selected = max(grch37_transcripts, 
+                     key=lambda x: int(x.get('stable_id_version', 0)))
+        selected['warning'] = warning
+        return process_transcripts([selected], base_accession)
+    return None
 
 def select_transcripts(data: List[Dict], assembly: str, version: Optional[str] = None) -> List[Dict]:
     """
@@ -247,7 +273,7 @@ def select_transcripts(data: List[Dict], assembly: str, version: Optional[str] =
                 selected = max(matching_grch37, key=lambda x: int(x['stable_id_version']))
                 identifier = f"{selected['stable_id']}.{selected['stable_id_version']}"
                 selected['warning'] = {
-                    'message': "Transcript selected based on best available GRCh38 MANE transcript match",
+                    'message': f"Transcript selected based on GRCh38 MANE transcript {grch38_mane['stable_id']}.{grch38_mane['stable_id_version']}",
                     'identifier': identifier,
                     'type': 'transcript_selection'
                 }
@@ -279,34 +305,53 @@ def process_transcripts(transcripts: List[Dict], identifier: str) -> List[Dict]:
         if not transcript:
             continue
 
-        # Determine the status message
-        status = None
-        if transcript.get('mane_transcript_type'):
-            # Standardize MANE status format
-            if 'PLUS CLINICAL' in transcript['mane_transcript_type'].upper():
-                status = 'MANE Plus Clinical'
-            elif 'SELECT' in transcript['mane_transcript_type'].upper():
-                status = 'MANE Select'
-        elif transcript.get('warning'):
-            # Use warning message as status if no MANE type
-            status = transcript['warning'].get('message')
+        print(f"\nProcessing transcript: {transcript.get('stable_id')}")
+        print(f"Assembly: {transcript.get('assembly')}")
+        
+        # Get Ensembl ID and Entrez ID from genes data
+        ensembl_id = None
+        entrez_id = None
+        if transcript.get('genes'):
+            for gene in transcript['genes']:
+                if gene.get('ensembl_id'):
+                    ensembl_id = gene['ensembl_id']
+                    entrez_id = gene['ensembl_id']
+                    break
+                elif gene.get('stable_id'):
+                    ensembl_id = gene['stable_id']
+                    entrez_id = gene['stable_id']
+                    break
+
+        # Handle MANE transcript and type based on assembly
+        assembly = transcript.get('assembly')
+        mane_transcript = ''
+        mane_transcript_type = None
+        if assembly == 'GRCh38':
+            mane_transcript = transcript.get('mane_transcript', '')
+            mane_transcript_type = transcript.get('mane_transcript_type', '')
+        
+        print(f"Found Ensembl ID from genes: {ensembl_id}")
+        print(f"Found Entrez ID from genes: {entrez_id}")
+        print(f"MANE transcript (only for GRCh38): {mane_transcript}")
+        print(f"MANE transcript type (only for GRCh38): {mane_transcript_type}")
 
         # Build the result dictionary
         for index, exon in enumerate(transcript.get('exons', []), start=1):
-            results.append({
+            result = {
                 'loc_region': exon['loc_region'],
                 'loc_start': exon['loc_start'],
                 'loc_end': exon['loc_end'],
                 'loc_strand': exon['loc_strand'],
                 'accession': f"{transcript['stable_id']}.{transcript['stable_id_version']}",
-                'ensembl_id': transcript.get('ensembl_stable_id'),
+                'ensembl_id': ensembl_id,
                 'gene': next((gene['name'] for gene in transcript.get('genes', []) if gene['name']), identifier),
-                'entrez_id': None,
+                'entrez_id': entrez_id,
                 'exon_id': exon['stable_id'],
                 'exon_number': index,
                 'transcript_biotype': transcript.get('biotype', ''),
-                'mane_transcript': transcript.get('mane_transcript', ''),
-                'status': status,
+                'mane_transcript': mane_transcript,
+                'mane_transcript_type': mane_transcript_type,
+                'status': None,  # Initialize status as None
                 'identifier': identifier,
                 'five_prime_utr': {
                     'start': transcript.get('five_prime_utr_start'),
@@ -316,7 +361,21 @@ def process_transcripts(transcripts: List[Dict], identifier: str) -> List[Dict]:
                     'start': transcript.get('three_prime_utr_start'),
                     'end': transcript.get('three_prime_utr_end')
                 }
-            })
+            }
+            
+            # Set status based on MANE type if present, handling case-insensitively
+            if mane_transcript_type:
+                mane_type_upper = mane_transcript_type.upper()
+                if mane_type_upper == 'MANE SELECT':
+                    result['status'] = 'MANE Select transcript'
+                elif mane_type_upper == 'MANE PLUS CLINICAL':
+                    result['status'] = 'MANE Plus Clinical transcript'
+            elif transcript.get('warning'):
+                result['status'] = transcript['warning'].get('message') if isinstance(transcript['warning'], dict) else transcript['warning']
+            
+            results.append(result)
+
+        print(f"Final result for transcript: {results[-1]}")
 
     return results
 
@@ -455,41 +514,26 @@ def process_coordinate_data(data: List[Dict], chrom: str, start: int, end: int, 
             'alert': f"No genes found overlapping coordinate {coord}."
         }]
 
-def fetch_panels_from_panelapp() -> List[Dict]:
+def fetch_panels_from_panelapp():
     """
-    Retrieves signed-off gene panels from the PanelApp API.
-
-    Returns:
-        List[Dict]: A list of dictionaries containing panel information.
+    Fetches panel data from PanelApp API, handling pagination.
     """
-    url = f"{PANELAPP_API_URL}panels/signedoff/"
     panels_list = []
-    logger.info(f"Fetching panels from {url}")
-
-    while url:
-        logger.info(f"Fetching from {url}")
-        data = ApiClient.get_panelapp_data(url)
-        if not data:
-            logger.info("No data received from API")
+    next_url = "https://panelapp.genomicsengland.co.uk/api/v1/panels/signedoff/"
+    
+    while next_url:
+        try:
+            response = requests.get(next_url)
+            response.raise_for_status()
+            data = response.json()
+            
+            panels_list.extend(data['results'])
+            next_url = data.get('next')
+            
+        except requests.RequestException as e:
+            current_app.logger.error(f"Error fetching panels from PanelApp: {str(e)}")
             break
-
-        logger.info(f"Received {len(data['results'])} panels")
-        for panel in data['results']:
-            panel_data = {
-                'id': panel['id'],
-                'name': panel['name'],
-                'disease_group': panel.get('disease_group', ''),
-                'disease_sub_group': panel.get('disease_sub_group', ''),
-                'relevant_disorders': panel.get('relevant_disorders', []),
-                'version': panel['version'],
-                'version_created': panel['version_created'],
-                'genes': fetch_genes_for_panel(panel['id'], include_amber=True, include_red=True)
-            }
-            panels_list.append(panel_data)
-        
-        url = data.get('next')
-
-    logger.info(f"Total panels fetched: {len(panels_list)}")
+    
     return panels_list
 
 def fetch_genes_for_panel(panel_id: int, include_amber: bool, include_red: bool) -> List[Dict]:
@@ -547,7 +591,7 @@ def get_transcript_data(identifier: str) -> List[Dict]:
         response = requests.get(url)
         if response.ok:
             data = response.json()
-            # The versioned endpoint returns a single transcript, but we'll keep the list format
+            # Versioned endpoint returns a single transcript, but keep the list format
             # for consistency with the rest of the code
             return [data] if data else []
     

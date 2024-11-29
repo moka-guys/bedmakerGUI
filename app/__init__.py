@@ -43,6 +43,10 @@ def create_app(config_class=Config):
         app.logger.setLevel(logging.INFO)
         app.logger.info('BED Generator startup')
 
+    @app.context_processor
+    def inject_version():
+        return dict(app_version=app.config['VERSION'])
+
     return app
 
 from app import models

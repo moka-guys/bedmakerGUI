@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 load_dotenv()  # Load environment variables from .env file
 
 class Config:
+    VERSION = '1.0.0' 
+    
     # Require SECRET_KEY to be set in production
     SECRET_KEY = os.environ.get('SECRET_KEY')
     if not SECRET_KEY and os.environ.get('FLASK_ENV') == 'production':
