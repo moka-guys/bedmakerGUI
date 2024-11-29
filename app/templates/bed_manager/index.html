@@ -362,6 +362,16 @@
                             document.getElementById('queryWorkflow').innerHTML = 
                                 formatQueryWorkflow(initialQuery);
                             
+                            // Add single re-query button
+                            const reQueryButton = `
+                                <div class="mt-3">
+                                    <button class="btn btn-primary" onclick='reQueryData(${JSON.stringify(initialQuery)})'>
+                                        <i class="bi bi-arrow-repeat"></i> Re-run Query
+                                    </button>
+                                </div>
+                            `;
+                            document.getElementById('queryWorkflow').insertAdjacentHTML('beforeend', reQueryButton);
+
                             var detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'));
                             detailsModal.show();
                         })
@@ -435,6 +445,9 @@
         }
 
         function formatQueryWorkflow(queryData) {
+            // Store the original query data as a data attribute
+            document.getElementById('queryWorkflow').dataset.query = JSON.stringify(queryData);
+            
             const workflowSteps = [];
             
             // Assembly Selection Step
@@ -646,6 +659,40 @@
             // Show the modal
             const modal = new bootstrap.Modal(document.getElementById('dataModal'));
             modal.show();
+        }
+
+        // Updated function to handle re-querying with all original data
+        function reQueryData(queryData) {
+            // Create a form to submit the data
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/bed_generator';
+
+            // Add CSRF token if needed
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+            if (csrfToken) {
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrf_token';
+                csrfInput.value = csrfToken;
+                form.appendChild(csrfInput);
+            }
+
+            // Add all relevant query data as hidden inputs
+            const fields = ['coordinates', 'identifiers', 'assembly'];
+            fields.forEach(field => {
+                if (queryData[field]) {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = field;
+                    input.value = queryData[field];
+                    form.appendChild(input);
+                }
+            });
+
+            // Submit the form
+            document.body.appendChild(form);
+            form.submit();
         }
     </script>
 {% endblock %}
