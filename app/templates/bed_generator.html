@@ -17,11 +17,11 @@
             <div class="col-md-6">
                 <!-- Reference Card -->
                 <div class="mb-4">
-                    <div class="card shadow-sm">
-                        <div class="card-header">
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header" style="background: linear-gradient(45deg, #f8f9fa, #ffffff);">
                             <i class="bi bi-book" style="padding-right: 5px;"></i>Reference
                         </div>
-                        <div class="card-body">
+                        <div class="card-body p-3">
                             <div class="mb-3">
                                 {{ form.assembly(class="form-control", id="assembly") }}
                             </div>
@@ -109,13 +109,14 @@
         </div>
 
         <!-- Identifiers Card -->
-        <div class="card shadow-sm mb-4" style="background-color: #f8f9fa;">
+        <div class="card shadow-sm mb-4">
             <div class="card-header" style="background-color: #b9fbd8;">
                 <i class="fa-duotone fa-solid fa-dna" style="padding-right: 5px;"></i>Identifiers
+                <small style="font-size: 0.8em; color: #6c757d;"><i><br>Enter gene symbols, rsIDs, or RefSeq transcripts</i></small>
             </div>
-            <div class="card-body">
+            <div class="card-body p-3">
                 <div class="mb-3">
-                    {{ form.identifiers(class="form-control", rows="3", placeholder="Gene symbol, rsID, or RefSeq transcript. Must be separated by commas, spaces, or new lines (e.g., TP53, rs1234567, NM_000546)", id="identifiers") }}
+                    {{ form.identifiers(class="form-control", rows="3", placeholder="Gene symbol, rsID, or RefSeq transcript. Must be separated by commas, spaces, or new lines", id="identifiers") }}
                 </div>
                 <div class="mb-3">
                     <label for="csvFile" class="form-label"><strong class="text-muted"><small>Upload CSV/TXT file with identifiers</strong> <i>Values separated using either commas or new lines</i></small></label>
