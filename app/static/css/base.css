@@ -408,3 +408,101 @@ body {
 .badge.bg-published {
     background-color: #198754;
 }
+
+/* Query Visualization Styles */
+.query-workflow {
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.workflow-step {
+    position: relative;
+    padding: 15px;
+    margin-bottom: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: transform 0.2s;
+}
+
+.workflow-step:hover {
+    transform: translateY(-2px);
+}
+
+.workflow-step::after {
+    content: '↓';
+    position: absolute;
+    bottom: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #004a99;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.workflow-step:last-child::after {
+    display: none;
+}
+
+.step-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.step-icon {
+    margin-right: 10px;
+    color: #004a99;
+    font-size: 1.2em;
+}
+
+.step-title {
+    font-weight: 600;
+    color: #004a99;
+}
+
+.step-content {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.parameter-tag {
+    background: #e9ecef;
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 0.9em;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.parameter-tag .param-label {
+    color: #666;
+    font-weight: 500;
+}
+
+.parameter-tag .param-value {
+    color: #004a99;
+    font-weight: 600;
+}
+
+.json-key {
+    color: #2c5282;
+    font-weight: 500;
+}
+
+.json-value {
+    color: #2b6cb0;
+}
+
+.json-boolean {
+    color: #805ad5;
+}
+
+.json-number {
+    color: #38a169;
+}
