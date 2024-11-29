@@ -506,3 +506,27 @@ body {
 .json-number {
     color: #38a169;
 }
+
+pre code {
+    display: block;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    color: #1a1a1a;
+    font-family: monospace;
+    font-size: 0.9em;
+    line-height: 1.4;
+}
+
+.btn-outline-secondary {
+    border-color: #6c757d;
+    color: #6c757d;
+}
+
+.btn-outline-secondary:hover {
+    background-color: #6c757d;
+    color: white;
+}
+
+.workflow-step:last-child {
+    margin-bottom: 0;
+}

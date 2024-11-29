@@ -142,19 +142,10 @@
                         <p><strong>Last Updated:</strong> <span id="updatedDate"></span></p>
                     </div>
                     
-                    <!-- Warning section -->
-                    <div id="warningSection" style="display: none;" class="mb-3">
-                        <p><strong>Warnings:</strong></p>
-                        <div class="alert alert-warning">
-                            <div id="warningContent"></div>
-                        </div>
-                    </div>
-                    
-                    <!-- Initial Query section -->
                     <div class="mb-3">
-                        <p><strong>Initial query:</strong></p>
-                        <div class="alert alert-info">
-                            <pre class="mb-0"><code id="initialQuery"></code></pre>
+                        <p><strong>Initial query workflow:</strong></p>
+                        <div class="query-workflow" id="queryWorkflow">
+                            <!-- Content will be populated by JavaScript -->
                         </div>
                     </div>
                 </div>
@@ -172,6 +163,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             var bedFileModal = new bootstrap.Modal(document.getElementById('bedFileModal'));
             
+            // Review button click handler
             document.querySelectorAll('.review-bed-file').forEach(function(button) {
                 button.addEventListener('click', function(e) {
                     e.preventDefault();
@@ -182,6 +174,13 @@
                         document.getElementById('bedFileModalBody').innerHTML = html;
                         document.querySelector('#bedFileModal .btn-primary').setAttribute('data-file-id', fileId);
                         document.querySelector('#bedFileModal .btn-success').setAttribute('data-file-id', fileId);
+                        
+                        // Add the fileAction event listener only after the modal content is loaded
+                        const fileActionSelect = document.getElementById('fileAction');
+                        if (fileActionSelect) {
+                            fileActionSelect.addEventListener('change', showComparison);
+                        }
+                        
                         bedFileModal.show();
                     });
                 });
@@ -268,9 +267,6 @@
                 });
             });
 
-            // Add event listener for fileAction change
-            document.getElementById('fileAction').addEventListener('change', showComparison);
-
             function reloadBedResults(fileId) {
                 fetch(`/bed_manager/reload_bed_results/${fileId}`)
                     .then(response => response.json())
@@ -349,57 +345,30 @@
                     var fileId = e.target.getAttribute('data-file-id');
 
                     fetch('/bed_manager/file_details/' + fileId)
-                    .then(response => response.json())
-                    .then(data => {
-                        document.getElementById('createdDate').textContent = new Date(data.created_at).toLocaleString();
-                        document.getElementById('updatedDate').textContent = new Date(data.updated_at).toLocaleString();
-                        
-                        // Parse the initial query if it's a string
-                        const initialQuery = typeof data.initial_query === 'string' ? 
-                            JSON.parse(data.initial_query) : data.initial_query;
-                        
-                        // Format the initial query with proper indentation
-                        document.getElementById('initialQuery').textContent = 
-                            JSON.stringify(initialQuery, null, 2);
-                        
-                        // Handle warning display
-                        const warningSection = document.getElementById('warningSection');
-                        const warningContent = document.getElementById('warningContent');
-                        
-                        if (data.warning) {
-                            let warningObj = typeof data.warning === 'string' ? 
-                                JSON.parse(data.warning) : data.warning;
-                                
-                            let warningHTML = `<p><strong>${warningObj.summary}</strong></p>`;
-                            if (warningObj.details && warningObj.details.length > 0) {
-                                // Create a Set to track unique identifier-message combinations
-                                const uniqueWarnings = new Set();
-                                warningObj.details.forEach(detail => {
-                                    const warningKey = `${detail.identifier}:${detail.message}`;
-                                    uniqueWarnings.add(warningKey);
-                                });
-                                
-                                warningHTML += '<ul>';
-                                uniqueWarnings.forEach(warning => {
-                                    const [identifier, message] = warning.split(':');
-                                    warningHTML += `<li><strong>${identifier}:</strong> ${message}</li>`;
-                                });
-                                warningHTML += '</ul>';
-                            }
+                        .then(response => response.json())
+                        .then(data => {
+                            console.log('Received data:', data);
+                            console.log('Initial query:', data.initial_query);
                             
-                            warningContent.innerHTML = warningHTML;
-                            warningSection.style.display = 'block';
-                        } else {
-                            warningSection.style.display = 'none';
-                        }
-                        
-                        var detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'));
-                        detailsModal.show();
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('An error occurred while fetching file details.');
-                    });
+                            document.getElementById('createdDate').textContent = new Date(data.created_at).toLocaleString();
+                            document.getElementById('updatedDate').textContent = new Date(data.updated_at).toLocaleString();
+                            
+                            // Format the workflow visualization
+                            const initialQuery = typeof data.initial_query === 'string' ? 
+                                JSON.parse(data.initial_query) : data.initial_query;
+                            
+                            console.log('Parsed query:', initialQuery);
+                            
+                            document.getElementById('queryWorkflow').innerHTML = 
+                                formatQueryWorkflow(initialQuery);
+                            
+                            var detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'));
+                            detailsModal.show();
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('An error occurred while fetching file details.');
+                        });
                 }
             });
 
@@ -463,6 +432,194 @@
             return content.map(entry => 
                 `${entry.chromosome}\t${entry.start}\t${entry.end}\t${entry.gene}`
             ).join('<br>');
+        }
+
+        function formatQueryWorkflow(queryData) {
+            const workflowSteps = [];
+            
+            // Assembly Selection Step
+            if (queryData.assembly) {
+                workflowSteps.push({
+                    icon: 'bi-diagram-3-fill',
+                    title: 'Assembly Selection',
+                    content: `<div class="parameter-tag">
+                        <span class="param-label">Assembly:</span>
+                        <span class="param-value">${queryData.assembly}</span>
+                    </div>`
+                });
+            }
+
+            // Input Parameters Step
+            const inputParams = [];
+            
+            // Coordinates
+            if (queryData.coordinates) {
+                inputParams.push(`
+                    <div class="parameter-tag">
+                        <span class="param-label">Coordinates:</span>
+                        <span class="param-value">${queryData.coordinates}</span>
+                    </div>
+                `);
+            }
+
+            // Identifiers
+            if (queryData.identifiers) {
+                const idCount = queryData.identifiers.split('\n').length;
+                inputParams.push(`
+                    <div class="parameter-tag">
+                        <span class="param-label">Identifiers:</span>
+                        <span class="param-value">${idCount} transcripts</span>
+                    </div>
+                `);
+            }
+
+            if (inputParams.length > 0) {
+                workflowSteps.push({
+                    icon: 'bi-input-cursor-text',
+                    title: 'Input Data',
+                    content: inputParams.join('')
+                });
+            }
+
+            // Padding Settings from nested settings
+            if (queryData.settings && queryData.settings.padding) {
+                const paddingSettings = [];
+                if (queryData.settings.padding.padding_5 !== undefined) {
+                    paddingSettings.push(`
+                        <div class="parameter-tag">
+                            <span class="param-label">5' Padding:</span>
+                            <span class="param-value">${queryData.settings.padding.padding_5}bp</span>
+                        </div>
+                    `);
+                }
+                if (queryData.settings.padding.padding_3 !== undefined) {
+                    paddingSettings.push(`
+                        <div class="parameter-tag">
+                            <span class="param-label">3' Padding:</span>
+                            <span class="param-value">${queryData.settings.padding.padding_3}bp</span>
+                        </div>
+                    `);
+                }
+                if (paddingSettings.length > 0) {
+                    workflowSteps.push({
+                        icon: 'bi-arrows-expand',
+                        title: 'Padding Settings',
+                        content: paddingSettings.join('')
+                    });
+                }
+            }
+
+            // UTR Settings from nested settings
+            const utrSettings = [];
+            if (queryData.settings && queryData.settings.hasOwnProperty('include_5utr')) {
+                utrSettings.push(`
+                    <div class="parameter-tag">
+                        <span class="param-label">5' UTR:</span>
+                        <span class="param-value">${queryData.settings.include_5utr ? 'Included' : 'Excluded'}</span>
+                    </div>
+                `);
+            }
+            if (queryData.settings && queryData.settings.hasOwnProperty('include_3utr')) {
+                utrSettings.push(`
+                    <div class="parameter-tag">
+                        <span class="param-label">3' UTR:</span>
+                        <span class="param-value">${queryData.settings.include_3utr ? 'Included' : 'Excluded'}</span>
+                    </div>
+                `);
+            }
+            if (utrSettings.length > 0) {
+                workflowSteps.push({
+                    icon: 'bi-toggles',
+                    title: 'UTR Settings',
+                    content: utrSettings.join('')
+                });
+            }
+
+            // Add a button to view raw query details
+            const rawQueryButton = `
+                <button class="btn btn-outline-secondary btn-sm mt-3" onclick='showRawQuery(${JSON.stringify(JSON.stringify(queryData))})'>
+                    <i class="bi bi-code-slash"></i> View Raw Query
+                </button>
+            `;
+
+            return `
+                ${workflowSteps.map(step => `
+                    <div class="workflow-step">
+                        <div class="step-header">
+                            <i class="bi ${step.icon} step-icon"></i>
+                            <span class="step-title">${step.title}</span>
+                        </div>
+                        <div class="step-content">
+                            ${step.content}
+                        </div>
+                    </div>
+                `).join('')}
+                ${rawQueryButton}
+            `;
+        }
+
+        function showRawQuery(queryDataStr) {
+            // Parse the stringified data back to an object
+            const queryData = JSON.parse(queryDataStr);
+            
+            // Create a modal for the raw query
+            const modalHtml = `
+                <div class="modal fade" id="rawQueryModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Raw Query Details</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <pre class="bg-light p-3 rounded"><code>${JSON.stringify(queryData, null, 2)}</code></pre>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Remove existing modal if it exists
+            const existingModal = document.getElementById('rawQueryModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+
+            // Add the modal to the document
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+            // Show the modal
+            const modal = new bootstrap.Modal(document.getElementById('rawQueryModal'));
+            modal.show();
+        }
+
+        function formatParameterTags(parameters) {
+            return Object.entries(parameters)
+                .map(([key, value]) => `
+                    <div class="parameter-tag">
+                        <span class="param-label">${formatKeyName(key)}:</span>
+                        <span class="param-value">${formatValue(value)}</span>
+                    </div>
+                `).join('');
+        }
+
+        function formatKeyName(key) {
+            return key.split('_').map(word => 
+                word.charAt(0).toUpperCase() + word.slice(1)
+            ).join(' ');
+        }
+
+        function formatValue(value) {
+            if (typeof value === 'boolean') {
+                return value ? 'Yes' : 'No';
+            }
+            if (typeof value === 'number') {
+                return value.toString();
+            }
+            return value;
         }
     </script>
 {% endblock %}
