@@ -530,3 +530,42 @@ pre code {
 .workflow-step:last-child {
     margin-bottom: 0;
 }
+
+.coordinate-list {
+    max-height: 200px;
+    overflow-y: auto;
+    font-family: monospace;
+    font-size: 0.9em;
+    word-break: break-all;
+    white-space: normal;
+}
+
+.coordinate-list code {
+    white-space: normal;
+    word-wrap: break-word;
+}
+
+.btn-link {
+    padding: 0;
+    font-size: 0.9em;
+    text-decoration: none;
+}
+
+.btn-link:hover {
+    text-decoration: underline;
+}
+
+.btn-outline-primary {
+    border-color: #004a99;
+    color: #004a99;
+}
+
+.btn-outline-primary:hover {
+    background-color: #004a99;
+    color: white;
+}
+
+pre code {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}

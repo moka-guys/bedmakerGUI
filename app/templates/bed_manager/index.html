@@ -450,66 +450,56 @@
             }
 
             // Input Parameters Step
-            const inputParams = [];
-            
-            // Coordinates
-            if (queryData.coordinates) {
-                inputParams.push(`
-                    <div class="parameter-tag">
-                        <span class="param-label">Coordinates:</span>
-                        <span class="param-value">${queryData.coordinates}</span>
-                    </div>
-                `);
-            }
-
-            // Identifiers
-            if (queryData.identifiers) {
-                const idCount = queryData.identifiers.split('\n').length;
-                inputParams.push(`
-                    <div class="parameter-tag">
-                        <span class="param-label">Identifiers:</span>
-                        <span class="param-value">${idCount} transcripts</span>
-                    </div>
-                `);
-            }
-
-            if (inputParams.length > 0) {
+            if (queryData.coordinates || queryData.identifiers) {
                 workflowSteps.push({
                     icon: 'bi-input-cursor-text',
                     title: 'Input Data',
-                    content: inputParams.join('')
+                    content: `
+                        <div class="d-flex gap-2">
+                            ${queryData.coordinates ? `
+                                <button class="btn btn-outline-primary btn-sm" onclick='showDataModal("Coordinates", \`${queryData.coordinates}\`)'>
+                                    <i class="bi bi-geo-alt"></i> Coordinates
+                                </button>
+                            ` : ''}
+                            ${queryData.identifiers ? `
+                                <button class="btn btn-outline-primary btn-sm" onclick='showDataModal("Identifiers", \`${queryData.identifiers}\`)'>
+                                    <i class="bi bi-list"></i> ${queryData.identifiers.split('\n').length} transcripts
+                                </button>
+                            ` : ''}
+                        </div>
+                    `
                 });
             }
 
-            // Padding Settings from nested settings
-            if (queryData.settings && queryData.settings.padding) {
-                const paddingSettings = [];
-                if (queryData.settings.padding.padding_5 !== undefined) {
-                    paddingSettings.push(`
+            // Standard Padding Settings
+            if (queryData.settings && queryData.settings.padding && queryData.settings.padding.standard !== undefined) {
+                workflowSteps.push({
+                    icon: 'bi-arrows-expand',
+                    title: 'Standard Padding',
+                    content: `
                         <div class="parameter-tag">
-                            <span class="param-label">5' Padding:</span>
-                            <span class="param-value">${queryData.settings.padding.padding_5}bp</span>
+                            <span class="param-label">Padding:</span>
+                            <span class="param-value">${queryData.settings.padding.standard}bp</span>
                         </div>
-                    `);
-                }
-                if (queryData.settings.padding.padding_3 !== undefined) {
-                    paddingSettings.push(`
-                        <div class="parameter-tag">
-                            <span class="param-label">3' Padding:</span>
-                            <span class="param-value">${queryData.settings.padding.padding_3}bp</span>
-                        </div>
-                    `);
-                }
-                if (paddingSettings.length > 0) {
-                    workflowSteps.push({
-                        icon: 'bi-arrows-expand',
-                        title: 'Padding Settings',
-                        content: paddingSettings.join('')
-                    });
-                }
+                    `
+                });
             }
 
-            // UTR Settings from nested settings
+            // SNP Padding Settings (as separate section)
+            if (queryData.settings && queryData.settings.padding && queryData.settings.padding.snp !== undefined) {
+                workflowSteps.push({
+                    icon: 'bi-bullseye',
+                    title: 'SNP Settings',
+                    content: `
+                        <div class="parameter-tag">
+                            <span class="param-label">SNP Padding:</span>
+                            <span class="param-value">${queryData.settings.padding.snp}bp</span>
+                        </div>
+                    `
+                });
+            }
+
+            // UTR Settings
             const utrSettings = [];
             if (queryData.settings && queryData.settings.hasOwnProperty('include_5utr')) {
                 utrSettings.push(`
@@ -620,6 +610,42 @@
                 return value.toString();
             }
             return value;
+        }
+
+        // Add this function to handle showing the data modal
+        function showDataModal(title, content) {
+            // Remove existing modal if present
+            const existingModal = document.getElementById('dataModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+
+            // Create modal HTML
+            const modalHtml = `
+                <div class="modal fade" id="dataModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">${title}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <pre class="bg-light p-3 rounded"><code>${content}</code></pre>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Add modal to document
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+            // Show the modal
+            const modal = new bootstrap.Modal(document.getElementById('dataModal'));
+            modal.show();
         }
     </script>
 {% endblock %}
