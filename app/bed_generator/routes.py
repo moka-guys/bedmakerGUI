@@ -20,6 +20,7 @@ Routes:
 """
 
 from flask import render_template, request, jsonify, session, current_app, redirect, url_for, flash
+from typing import List, Dict, Optional
 from flask_login import current_user, login_required
 from app.bed_generator import bed_generator_bp
 from app.bed_generator.utils import (
@@ -37,38 +38,69 @@ from app import db
 import re
 import requests
 import os
+import concurrent.futures
+from typing import List, Dict, Tuple
 
 def fetch_panels_from_panelapp():
     """
-    Fetches panel data from PanelApp API.
-    Returns a list of panels with their details.
+    Fetches panel data from PanelApp API, handling pagination.
+    Returns a list of panels with their details, ordered by the 'R' code.
     """
     try:
-        # PanelApp API base URL
-        base_url = "https://panelapp.genomicsengland.co.uk/api/v1"
+        # PanelApp API base URL for signed-off panels
+        base_url = "https://panelapp.genomicsengland.co.uk/api/v1/panels/signedoff/"
+        panels = []
+        next_url = base_url
         
-        # Get all panels
-        response = requests.get(f"{base_url}/panels")
-        response.raise_for_status()
-        
-        panels_data = response.json()
+        while next_url:
+            print(f"\nFetching from URL: {next_url}")
+            response = requests.get(next_url)
+            response.raise_for_status()
+            
+            data = response.json()
+            panels.extend(data.get('results', []))
+            next_url = data.get('next')
         
         # Extract relevant panel information
-        panels = []
-        for panel in panels_data.get('results', []):
-            panels.append({
+        panel_list = []
+        for panel in panels:
+            # Extract the 'R' code from relevant_disorders
+            relevant_disorders = panel.get('relevant_disorders', [])
+            r_code = next((code for code in relevant_disorders if code.startswith('R')), '')
+            
+            panel_name = panel.get('name', '')
+            formatted_name = f"{r_code} - {panel_name}" if r_code else panel_name
+            
+            print(f"\nOriginal name: {panel_name}")
+            print(f"Relevant disorders: {relevant_disorders}")
+            print(f"R-code found: {r_code}")
+            print(f"Formatted name: {formatted_name}")
+            
+            panel_list.append({
                 'id': panel.get('id'),
-                'name': panel.get('name'),
-                'full_name': panel.get('name'),
+                'name': formatted_name,
+                'full_name': panel_name,
                 'disease_group': panel.get('disease_group', ''),
                 'disease_sub_group': panel.get('disease_sub_group', '')
             })
         
-        return panels
+        # Sort panels by the 'R' code
+        def get_r_number(panel):
+            r_match = re.search(r'R(\d+)', panel['name'])
+            return int(r_match.group(1)) if r_match else float('inf')
+        
+        panel_list.sort(key=get_r_number)
+        
+        print(f"\nFirst 3 sorted panels: {[p['name'] for p in panel_list[:3] if panel_list]}")
+        
+        return panel_list
         
     except requests.RequestException as e:
         current_app.logger.error(f"Error fetching panels from PanelApp: {str(e)}")
         raise Exception(f"Failed to fetch panels: {str(e)}")
+    except Exception as e:
+        current_app.logger.error(f"Error processing panels: {str(e)}")
+        raise Exception(f"Failed to process panels: {str(e)}")
 
 @bed_generator_bp.route('/', methods=['GET', 'POST'])
 def index():
@@ -308,114 +340,136 @@ def settings():
 @bed_generator_bp.route('/submit_for_review', methods=['POST'])
 @login_required
 def submit_for_review():
+    """
+    Submit BED files for review, generating both base and type-specific versions.
+    """
     try:
         data = request.get_json()
         file_name = data.get('fileName')
         results = data.get('results', [])
-        initial_query = data.get('initialQuery')
+        initial_query = json.loads(data.get('initialQuery'))
         assembly = data.get('assembly')
-        include_5utr = data.get('include5UTR', False)
-        include_3utr = data.get('include3UTR', False)
-
-        print("\n=== Submit for Review Debug ===")
-        print(f"Initial settings - 5'UTR: {include_5utr}, 3'UTR: {include_3utr}")
-
-        # Store original results in database first
-        bed_file_id = store_bed_file(
-            file_name=file_name,
-            results=results,
-            user_id=current_user.id,
-            initial_query=initial_query,
-            assembly=assembly,
-            include_5utr=include_5utr,
-            include_3utr=include_3utr
-        )
-
-        # Get settings from database
         settings = Settings.get_settings()
 
-        # Generate all BED file formats
-        bed_types = ['data', 'sambamba', 'exomeDepth', 'cnv']
-        for bed_type in bed_types:
-            print(f"\nProcessing {bed_type} BED file:")
+        # Process base BED file if requested
+        if data.get('baseOnly', False):
+            base_settings = {
+                'include_5utr': data.get('include5UTR', False),
+                'include_3utr': data.get('include3UTR', False)
+            }
             
-            # Get type-specific settings
-            db_type = bed_type.lower()
-            include_5utr = getattr(settings, f'{db_type}_include_5utr', False)
-            include_3utr = getattr(settings, f'{db_type}_include_3utr', False)
-            padding = getattr(settings, f'{db_type}_padding', 0)
-            
-            processed_results = []
-            for result in results:
-                processed = result.copy()
-                
-                # Skip UTR processing for genomic coordinates
-                if result.get('is_genomic_coordinate', False):
-                    processed_results.append(processed)
-                    continue
-                
-                # Handle SNPs differently
-                if result.get('is_snp', False) or result.get('rsid'):
-                    center = int(result['loc_start'])
-                    processed['loc_start'] = center
-                    processed['loc_end'] = center
-                    processed['_padding'] = padding
-                    processed_results.append(processed)
-                    continue
-                
-                # Process regular transcript entries
-                strand = result.get('strand', 1)
-                
-                # Use the full exon coordinates as starting point
-                new_start = int(result.get('full_loc_start', result['loc_start']))
-                new_end = int(result.get('full_loc_end', result['loc_end']))
-                
-                print(f"Processing {result.get('gene')} - Full: {new_start}-{new_end}")
-                print(f"Strand: {strand}, Include 5'UTR: {include_5utr}, Include 3'UTR: {include_3utr}")
-
-                if strand == 1:  # Positive strand
-                    if not include_5utr and result.get('five_prime_utr_end'):
-                        if new_start < int(result['five_prime_utr_end']):
-                            new_start = int(result['five_prime_utr_end'])
-                    if not include_3utr and result.get('three_prime_utr_start'):
-                        if new_end > int(result['three_prime_utr_start']):
-                            new_end = int(result['three_prime_utr_start'])
-                else:  # Negative strand
-                    if not include_5utr and result.get('five_prime_utr_end'):
-                        if new_end > int(result['five_prime_utr_end']):
-                            new_end = int(result['five_prime_utr_end'])
-                    if not include_3utr and result.get('three_prime_utr_start'):
-                        if new_start < int(result['three_prime_utr_start']):
-                            new_start = int(result['three_prime_utr_start'])
-
-                # Skip entries that would be completely removed
-                if new_end <= new_start:
-                    print(f"Skipping entry {result.get('exon_number')} as it would be completely removed by UTR exclusion")
-                    continue
-                    
-                processed['loc_start'] = new_start
-                processed['loc_end'] = new_end
-                processed['_padding'] = padding
-                processed_results.append(processed)
-
-            # Generate BED content
-            bed_content = BedGenerator.create_formatted_bed(
-                results=processed_results,
-                format_type=bed_type,
-                add_chr_prefix=False
+            # Process entries for base BED file
+            processed_results = process_bed_entries(
+                results,
+                settings=base_settings
             )
             
-            filename = f"{file_name}_{bed_type}.bed"
-            save_path = os.path.join(current_app.config['DRAFT_BED_FILES_DIR'], filename)
-            with open(save_path, 'w') as f:
-                f.write(bed_content)
-            print(f"Saved {filename}")
-
+            # Create base BED file record
+            base_query = initial_query.copy()
+            base_query['settings'] = base_settings
+            
+            base_bed_file = BedFile(
+                filename=file_name,
+                status='draft',
+                submitter_id=current_user.id,
+                initial_query=json.dumps(base_query),
+                assembly=assembly,
+                include_5utr=base_settings['include_5utr'],
+                include_3utr=base_settings['include_3utr']
+            )
+            db.session.add(base_bed_file)
+            db.session.flush()
+            
+            # Create entries and generate file
+            BedEntry.create_entries(base_bed_file.id, processed_results)
+            generate_bed_files(file_name, processed_results, settings.to_dict())
+            
+        else:
+            # Process each BED type
+            bed_types = ['data', 'sambamba', 'exomeDepth', 'cnv']
+            
+            for bed_type in bed_types:
+                # Get settings for this bed type
+                type_settings = {
+                    'include_5utr': getattr(settings, f'{bed_type}_include_5utr', False),
+                    'include_3utr': getattr(settings, f'{bed_type}_include_3utr', False)
+                }
+                
+                # Process entries for this type
+                processed_results = process_bed_entries(
+                    results,
+                    settings=type_settings,
+                    padding=getattr(settings, f'{bed_type}_padding', 0),
+                    snp_padding=getattr(settings, f'{bed_type}_snp_padding', 0)
+                )
+                
+                # Create type-specific query
+                type_query = initial_query.copy()
+                type_query['settings'] = {
+                    **type_settings,
+                    'padding': {
+                        'standard': getattr(settings, f'{bed_type}_padding', 0),
+                        'snp': getattr(settings, f'{bed_type}_snp_padding', 0)
+                    },
+                    'bed_type': bed_type
+                }
+                
+                # Create BED file record
+                type_filename = f"{file_name}_{bed_type}"
+                bed_file = BedFile(
+                    filename=type_filename,
+                    status='draft',
+                    submitter_id=current_user.id,
+                    initial_query=json.dumps(type_query),
+                    assembly=assembly,
+                    include_5utr=type_settings['include_5utr'],
+                    include_3utr=type_settings['include_3utr']
+                )
+                db.session.add(bed_file)
+                db.session.flush()
+                
+                # Create entries and generate file
+                BedEntry.create_entries(bed_file.id, processed_results)
+                generate_bed_files(type_filename, processed_results, settings.to_dict())
+        
+        db.session.commit()
         return jsonify({'success': True})
-
+        
     except Exception as e:
         current_app.logger.error(f"Error in submit_for_review: {str(e)}")
+        current_app.logger.error("Full traceback:", exc_info=True)
+        db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
+
+def generate_bed_files(file_name: str, results: List[Dict], settings: Dict) -> None:
+    """
+    Generate BED files with the provided results.
+    
+    Args:
+        file_name: Base name for the BED file
+        results: List of processed BED entries
+        settings: Application settings dictionary
+    """
+    try:
+        # Generate BED content
+        bed_content = BedGenerator.create_formatted_bed(
+            results=results,
+            format_type='raw',  # or specify type based on filename
+            add_chr_prefix=False
+        )
+        
+        # Write the file
+        draft_dir = current_app.config.get('DRAFT_BED_FILES_DIR')
+        os.makedirs(draft_dir, exist_ok=True)
+        file_path = os.path.join(draft_dir, f"{file_name}.bed")
+        
+        with open(file_path, 'w') as f:
+            f.write(bed_content)
+            
+    except Exception as e:
+        current_app.logger.error(f"Error generating BED file: {str(e)}")
+        current_app.logger.error("Full traceback:", exc_info=True)
+        raise
 
 @bed_generator_bp.route('/download_raw_bed', methods=['POST'])
 def download_raw_bed():
@@ -451,97 +505,36 @@ def download_custom_bed(bed_type):
     try:
         data = request.get_json()
         results = data.get('results', [])
-        filename_prefix = data.get('filename', 'custom')
-        add_chr_prefix = data.get('addChrPrefix', False)
-        
-        # Get settings from database
         settings = Settings.get_settings()
         
-        # Convert bed_type to match database column names
-        db_type = {
-            'data': 'data',
-            'sambamba': 'sambamba',
-            'exome_depth': 'exomeDepth',
-            'cnv': 'cnv'
-        }.get(bed_type, bed_type)
+        # Get settings for this bed type
+        db_type = bed_type.lower()
+        bed_settings = {
+            'include_5utr': getattr(settings, f'{db_type}_include_5utr', False),
+            'include_3utr': getattr(settings, f'{db_type}_include_3utr', False)
+        }
         
-        # Get UTR settings for this bed type
-        include_5utr = getattr(settings, f'{db_type}_include_5utr', False)
-        include_3utr = getattr(settings, f'{db_type}_include_3utr', False)
+        # Process entries
+        processed_results = process_bed_entries(
+            results,
+            bed_settings,
+            padding=getattr(settings, f'{db_type}_padding', 0),
+            snp_padding=getattr(settings, f'{db_type}_snp_padding', 0)
+        )
         
-        # Process results with UTR settings
-        processed_results = []
-        for result in results:
-            processed = result.copy()
-            
-            # Skip UTR processing for genomic coordinates
-            if result.get('is_genomic_coordinate', False):
-                processed_results.append(processed)
-                continue
-            
-            # Handle SNPs differently
-            if result.get('is_snp', False) or result.get('rsid'):
-                center = int(result['loc_start'])
-                padding = int(getattr(settings, f'{db_type}_snp_padding', 0))
-                processed['loc_start'] = center - padding
-                processed['loc_end'] = center + padding
-                processed['_padding'] = padding
-                processed_results.append(processed)
-                continue
-            
-            # Process regular transcript entries
-            strand = result.get('strand', 1)
-            
-            # Use the full exon coordinates as starting point
-            new_start = int(result.get('full_loc_start', result['loc_start']))
-            new_end = int(result.get('full_loc_end', result['loc_end']))
-            
-            if strand == 1:  # Positive strand
-                if not include_5utr and result.get('five_prime_utr_end'):
-                    if new_start < int(result['five_prime_utr_end']):
-                        new_start = int(result['five_prime_utr_end'])
-                
-                if not include_3utr and result.get('three_prime_utr_start'):
-                    if new_end > int(result['three_prime_utr_start']):
-                        new_end = int(result['three_prime_utr_start'])
-            else:  # Negative strand
-                if not include_5utr and result.get('five_prime_utr_end'):
-                    if new_end > int(result['five_prime_utr_end']):
-                        new_end = int(result['five_prime_utr_end'])
-                
-                if not include_3utr and result.get('three_prime_utr_start'):
-                    if new_start < int(result['three_prime_utr_start']):
-                        new_start = int(result['three_prime_utr_start'])
-            
-            # Skip entries that would be completely removed
-            if new_end <= new_start:
-                print(f"Skipping entry {result.get('exon_number')} as it would be completely removed by UTR exclusion")
-                continue
-                
-            processed['loc_start'] = new_start
-            processed['loc_end'] = new_end
-            
-            # Apply regular padding
-            padding = int(getattr(settings, f'{db_type}_padding', 0))
-            processed['_padding'] = padding
-            processed_results.append(processed)
-        
-        # Generate BED file
+        # Generate BED file content
         bed_content = BedGenerator.create_formatted_bed(
             results=processed_results,
             format_type=db_type,
-            add_chr_prefix=add_chr_prefix
+            add_chr_prefix=data.get('addChrPrefix', False)
         )
-        
-        filename = f"{filename_prefix}_{bed_type}.bed"
         
         return jsonify({
             'content': bed_content,
-            'filename': filename
+            'filename': f"{data.get('filename', 'custom')}_{bed_type}.bed"
         })
     except Exception as e:
         current_app.logger.error(f"Error in download_custom_bed: {str(e)}")
-        current_app.logger.error("Full traceback:", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 @bed_generator_bp.route('/get_published_bed_files')
@@ -617,3 +610,97 @@ def get_mane_plus_clinical_identifiers(results):
             'MANE Plus Clinical' in mane_type):
             mane_plus_clinical.add(result.get('gene', ''))
     return mane_plus_clinical
+
+def process_bed_entry(
+    entry: Dict,
+    settings: Dict[str, bool],
+    padding: Optional[int] = None,
+    snp_padding: Optional[int] = None
+) -> Optional[Dict]:
+    """
+    Process a single BED entry according to UTR settings and padding requirements.
+    Returns None if the entry should be excluded.
+    
+    Args:
+        entry: Dictionary containing the entry data
+        settings: Dictionary with 'include_5utr' and 'include_3utr' boolean flags
+        padding: Optional padding value for regular entries
+        snp_padding: Optional padding value for SNP entries
+    """
+    # Return genomic coordinates unchanged
+    if entry.get('is_genomic_coordinate', False):
+        return entry.copy()
+    
+    result = entry.copy()
+    
+    # Handle SNPs
+    if entry.get('is_snp', False) or entry.get('rsid'):
+        if snp_padding:
+            center = int(entry['loc_start'])
+            result['loc_start'] = center - snp_padding
+            result['loc_end'] = center + snp_padding
+        return result
+    
+    strand = entry.get('strand', 1)
+    start = int(entry.get('full_loc_start', entry['loc_start']))
+    end = int(entry.get('full_loc_end', entry['loc_end']))
+    
+    # Check if exon is entirely within UTR
+    if strand == 1:  # Forward strand
+        if not settings['include_5utr'] and entry.get('five_prime_utr_end'):
+            utr_end = int(entry['five_prime_utr_end'])
+            if end <= utr_end:
+                return None
+            start = max(start, utr_end)
+            
+        if not settings['include_3utr'] and entry.get('three_prime_utr_start'):
+            utr_start = int(entry['three_prime_utr_start'])
+            if start >= utr_start:
+                return None
+            end = min(end, utr_start)
+    else:  # Reverse strand
+        if not settings['include_5utr'] and entry.get('five_prime_utr_end'):
+            utr_end = int(entry['five_prime_utr_end'])
+            if start >= utr_end:
+                return None
+            end = min(end, utr_end)
+            
+        if not settings['include_3utr'] and entry.get('three_prime_utr_start'):
+            utr_start = int(entry['three_prime_utr_start'])
+            if end <= utr_start:
+                return None
+            start = max(start, utr_start)
+    
+    # Apply padding if specified
+    if padding:
+        start = max(0, start - padding)
+        end = end + padding
+        
+    result['loc_start'] = start
+    result['loc_end'] = end
+    
+    return result
+
+def process_bed_entries(
+    entries: List[Dict],
+    settings: Dict[str, bool],
+    padding: Optional[int] = None,
+    snp_padding: Optional[int] = None
+) -> List[Dict]:
+    """
+    Process multiple BED entries according to UTR settings and padding requirements.
+    
+    Args:
+        entries: List of dictionaries containing entry data
+        settings: Dictionary with 'include_5utr' and 'include_3utr' boolean flags
+        padding: Optional padding value for regular entries
+        snp_padding: Optional padding value for SNP entries
+    """
+    processed_entries = []
+    
+    for entry in entries:
+        processed = process_bed_entry(entry, settings, padding, snp_padding)
+        if processed:
+            processed_entries.append(processed)
+            
+    return processed_entries

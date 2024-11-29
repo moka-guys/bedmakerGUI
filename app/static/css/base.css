@@ -77,29 +77,31 @@ body {
 }
 
 .card {
-    background-color: #ededed;
     border: none;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    transition: box-shadow 0.3s ease, transform 0.3s ease;
-    background-color: var(--card-background);
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    margin-bottom: 1.5rem;
 }
 
 .card:hover {
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
 }
 
 .card-header {
-    background-color: #c7ddff;
-    border-bottom: 1px solid #cdcbcb;
+    background: linear-gradient(45deg, #f8f9fa, #ffffff);
+    border-radius: 12px 12px 0 0 !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    padding: 1rem 1.5rem;
     font-weight: 600;
-    padding: 12px 20px;
-    outline: 1px solid #cdcbcb;
+    font-size: 1.1rem;
 }
 
 .card-body {
-    background-color: #fafafa;
-    padding: 10px;
+    padding: 1.5rem;
+    background-color: #ffffff;
+    border-radius: 0 0 12px 12px;
 }
 
 :root {
@@ -111,26 +113,40 @@ body {
     --card-background: #ffffff;
 }
 
-.btn-primary {
-    background-color: var(--primary-color);
-    border-color: var(--primary-color);
+.btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 0.9rem;
 }
 
-.btn-success {
-    background-color: var(--secondary-color);
-    border-color: var(--secondary-color);
+.btn-primary {
+    background: linear-gradient(45deg, #4a90e2, #357abd);
+    border: none;
+    box-shadow: 0 2px 4px rgba(74, 144, 226, 0.2);
+}
+
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(74, 144, 226, 0.3);
 }
 
 .form-control {
-    border-radius: 4px;
-    border: 1px solid #ced4da;
-    padding: 10px 15px;
-    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+    background-color: #f8f9fa;
 }
 
 .form-control:focus {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+    border-color: #4a90e2;
+    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+    background-color: #ffffff;
 }
 
 .form-check-input:checked {
@@ -139,8 +155,11 @@ body {
 }
 
 select.form-control {
-    background-size: 8px 10px;
-    padding-right: 2.25rem;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23555' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    padding-right: 2.5rem;
 }
 
 @keyframes fadeIn {
@@ -253,13 +272,15 @@ body {
     width: 45px;
     height: 22px;
     margin-top: 10px;
+    gap: 0.5rem;
 }
 
 .spinner-square > .square {
     width: 9px;
     height: 22px;
     margin: auto auto;
-    border-radius: 2px;
+    border-radius: 4px;
+    background: linear-gradient(45deg, #4a90e2, #357abd);
 }
 
 .square-1 {

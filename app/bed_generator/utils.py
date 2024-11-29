@@ -34,7 +34,7 @@ def load_settings():
 
 def process_identifiers(identifiers: List[str], assembly: str, include_5utr: bool, include_3utr: bool) -> Tuple[List[Dict[str, Any]], List[str]]:
     """
-    Processes a list of genetic identifiers, fetching data and applying UTR and padding adjustments.
+    Processes a list of genetic identifiers in parallel, fetching data and applying UTR and padding adjustments.
     """
     results = []
     no_data_identifiers = []
@@ -160,7 +160,7 @@ def process_tark_data(r: Dict[str, Any], include_5utr: bool, include_3utr: bool)
 
 def process_coordinates(coordinates: List[str], assembly: str = 'GRCh38') -> List[Dict[str, Any]]:
     """
-    Processes a list of genomic coordinates, fetching overlapping gene information.
+    Processes a list of genomic coordinates in parallel, fetching overlapping gene information.
     """
     results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
@@ -183,12 +183,16 @@ def process_coordinates(coordinates: List[str], assembly: str = 'GRCh38') -> Lis
 
 def store_panels_in_json(panels_data: List[Dict[str, Any]]) -> None:
     """
-    Stores panel data in a JSON file, formatting the panel names and adding a last updated timestamp.
+    Stores panel data in a JSON file, formatting panel names with R-codes.
     """
     for panel in panels_data:
         panel['id'] = int(panel['id'])
-        relevant_disorders = panel.get('relevant_disorders', [])
-        r_code = relevant_disorders[-1] if relevant_disorders else ''
+        
+        # Get R-code from relevant_disorders
+        r_code = next((disorder for disorder in panel.get('relevant_disorders', []) 
+                      if disorder.startswith('R')), '')
+        
+        # Format the full name
         panel['full_name'] = f"{r_code} - {panel['name']}" if r_code else panel['name']
     
     data_to_store = {

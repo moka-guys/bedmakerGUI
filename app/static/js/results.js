@@ -70,7 +70,7 @@ function loadIGV() {
     loadingIndicator.innerHTML = 'Loading IGV...';
     igvDiv.appendChild(loadingIndicator);
 
-    var genome = initialQuery.assembly === 'GRCh38' ? 'hg38' : 'hg19';
+    var genome = document.getElementById('genome-select').value;
 
     var results = JSON.parse(document.getElementById('bedContent').value);
     var bedContent = createBedContent(results);
@@ -446,10 +446,9 @@ function submitForReview() {
     const assembly = document.getElementById('genome-select').value;
     const include5UTR = document.getElementById('include5UTR').checked;
     const include3UTR = document.getElementById('include3UTR').checked;
+    const baseOnly = document.getElementById('baseOnly').checked;
 
-    // Get the initial query from the frontend
     const { initialQuery } = getInitialQueryAndPadding();
-    // Add UTR settings to initialQuery
     initialQuery.include5UTR = include5UTR;
     initialQuery.include3UTR = include3UTR;
 
@@ -464,7 +463,8 @@ function submitForReview() {
             initialQuery: JSON.stringify(initialQuery),
             assembly: assembly,
             include5UTR: include5UTR,
-            include3UTR: include3UTR
+            include3UTR: include3UTR,
+            baseOnly: baseOnly
         }),
     })
     .then(response => response.json())
@@ -518,14 +518,17 @@ function updateIGVLocus() {
 
 function compareBedFiles(uploadedContent) {
     const generatedResults = JSON.parse(document.getElementById('bedContent').value);
-    const uploadedResults = uploadedContent.split('\n').map(line => {
-        const parts = line.split('\t');
-        return {
-            chr: normalizeChromosome(parts[0]),
-            start: parseInt(parts[1]),
-            end: parseInt(parts[2])
-        };
-    });
+    // Filter out comment lines (starting with #) and empty lines
+    const uploadedResults = uploadedContent.split('\n')
+        .filter(line => line.trim() && !line.trim().startsWith('#'))
+        .map(line => {
+            const parts = line.split('\t');
+            return {
+                chr: normalizeChromosome(parts[0]),
+                start: parseInt(parts[1]),
+                end: parseInt(parts[2])
+            };
+        });
 
     const uniqueInGenerated = [];
     const uniqueInUploaded = [];
@@ -557,24 +560,16 @@ function compareBedFiles(uploadedContent) {
 
     const comparisonResultElement = document.getElementById('comparisonResult');
     if (uniqueInGenerated.length > 0 || uniqueInUploaded.length > 0) {
-        // Clear previous content
         comparisonResultElement.innerHTML = '';
-
-        // Create the link element
         const uniqueRegionsLink = document.createElement('a');
         uniqueRegionsLink.href = '#';
         uniqueRegionsLink.style.color = 'red';
         uniqueRegionsLink.textContent = 'Unique regions detected';
-
-        // Attach the click event listener
         uniqueRegionsLink.addEventListener('click', function(event) {
-            event.preventDefault(); // Prevent default anchor behavior
+            event.preventDefault();
             showUniqueRegionsModal();
         });
-
-        // Append the link to the comparisonResultElement
         comparisonResultElement.appendChild(uniqueRegionsLink);
-
         populateUniqueRegionsPane(uniqueInGenerated, uniqueInUploaded);
     } else {
         comparisonResultElement.textContent = 'All regions overlap.';
@@ -885,7 +880,7 @@ function handleManePlusTranscripts(results) {
     
     for (const [gene, statuses] of geneTranscripts.entries()) {
         console.log(`Checking ${gene} with statuses:`, Array.from(statuses));
-        if (statuses.has('MANE Select') && statuses.has('MANE Plus Clinical')) {
+        if (statuses.has('MANE Select transcript') && statuses.has('MANE Plus Clinical transcript')) {
             console.log(`${gene} has both transcript types`);
             // Group all results for this gene
             genesWithBothTypes.set(gene, results.filter(r => r.gene === gene));
@@ -910,8 +905,8 @@ function showTranscriptSelectionModal(geneTranscripts) {
     optionsContainer.innerHTML = '';
 
     geneTranscripts.forEach((transcripts, gene) => {
-        const maneSelect = transcripts.find(t => t.status === 'MANE Select');
-        const manePlus = transcripts.find(t => t.status === 'MANE Plus Clinical');
+        const maneSelect = transcripts.find(t => t.status === 'MANE Select transcript');
+        const manePlus = transcripts.find(t => t.status === 'MANE Plus Clinical transcript');
         
         console.log(`Creating options for ${gene}:`, { maneSelect, manePlus });
         
@@ -959,7 +954,7 @@ function applyTranscriptSelection() {
     document.querySelectorAll('[id^="mane_select_"]').forEach(radio => {
         const gene = radio.id.replace('mane_select_', '');
         const selectedType = document.querySelector(`input[name="transcript_${gene}"]:checked`).value;
-        selections.set(gene, selectedType === 'mane_select' ? 'MANE Select' : 'MANE Plus Clinical');
+        selections.set(gene, selectedType === 'mane_select' ? 'MANE Select transcript' : 'MANE Plus Clinical transcript');
     });
     
     console.log("Selected transcript types:", Array.from(selections.entries()));

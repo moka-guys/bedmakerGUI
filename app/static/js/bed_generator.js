@@ -145,13 +145,13 @@ function updatePanelDropdown(data) {
     if (Array.isArray(data)) {
         // If data is an array, assume it's the old format (just panels)
         data.forEach(panel => {
-            var option = new Option(panel.full_name || panel.name, panel.id);
+            var option = new Option(panel.name, panel.id);
             select.add(option);
         });
     } else if (data && Array.isArray(data.panels)) {
         // If data is an object with a panels array, use the new format
         data.panels.forEach(panel => {
-            var option = new Option(panel.full_name || panel.name, panel.id);
+            var option = new Option(panel.name, panel.id);
             select.add(option);
         });
         if (data.last_updated) {

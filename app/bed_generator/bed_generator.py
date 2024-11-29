@@ -26,7 +26,7 @@ class BedGenerator:
         },
         'sambamba': {
             'fields': [
-                lambda r, p: f"{r['loc_region']}-{int(r['loc_start']) - p}-{int(r['loc_end']) + p}", 
+                lambda r, p: f"{r['loc_region']}-{r['loc_start']}-{r['loc_end']}", 
                 lambda r, _: "0",
                 lambda r, _: '+' if r.get('loc_strand', 1) > 0 else '-',
                 lambda r, _: f"{r['gene']};{r['accession']}",
@@ -40,7 +40,7 @@ class BedGenerator:
         },
         'cnv': {
             'fields': [
-                lambda r, _: r['accession']
+                lambda r, _: str(r['entrez_id'])
             ]
         }
     }
