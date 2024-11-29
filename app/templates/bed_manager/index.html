@@ -35,9 +35,25 @@
                                 <td>{{ bed_file.id }}</td>
                                 <td>{{ bed_file.filename }}</td>
                                 <td>{{ bed_file.submitter.username }}</td>
-                                <td>{{ bed_file.include_5utr }}</td>
-                                <td>{{ bed_file.include_3utr }}</td>
-                                <td>{{ bed_file.status }}</td>
+                                <td class="text-center">
+                                    {% if bed_file.include_5utr %}
+                                        <i class="bi bi-check-circle-fill text-success" title="5' UTR included"></i>
+                                    {% else %}
+                                        <i class="bi bi-x-circle-fill text-muted" title="5' UTR not included"></i>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if bed_file.include_3utr %}
+                                        <i class="bi bi-check-circle-fill text-success" title="3' UTR included"></i>
+                                    {% else %}
+                                        <i class="bi bi-x-circle-fill text-muted" title="3' UTR not included"></i>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge rounded-pill bg-{{ bed_file.status|lower }}">
+                                        {{ bed_file.status }}
+                                    </span>
+                                </td>
                                 <td>
                                     {% if current_user.is_authorizer %}
                                         <button class="btn btn-primary btn-sm review-bed-file" data-file-id="{{ bed_file.id }}">Review</button>
