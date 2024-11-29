@@ -70,7 +70,7 @@ function loadIGV() {
     loadingIndicator.innerHTML = 'Loading IGV...';
     igvDiv.appendChild(loadingIndicator);
 
-    var genome = document.getElementById('genome-select').value;
+    var genome = initialQuery.assembly === 'GRCh38' ? 'hg38' : 'hg19';
 
     var results = JSON.parse(document.getElementById('bedContent').value);
     var bedContent = createBedContent(results);

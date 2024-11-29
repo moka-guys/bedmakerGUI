@@ -161,7 +161,38 @@ def fetch_data_from_tark(identifier: str, assembly: str) -> Optional[List[Dict]]
     
     # Make a single API call to get all transcript data
     data = ApiClient.get_tark_data(search_url, params)
-    if not data:
+    print(f"Initial TARK search result: {bool(data)}")
+    
+    # If we're looking for GRCh37 and either no data found or no GRCh37 transcripts
+    if assembly == 'GRCh37' and (not data or not any(t for t in data if t['assembly'] == 'GRCh37')):
+        # Try Ensembl gene symbol lookup as fallback
+        ensembl_url = f"https://rest.ensembl.org/xrefs/symbol/homo_sapiens/{identifier}?content-type=application/json"
+        print(f"Trying Ensembl lookup URL: {ensembl_url}")
+        ensembl_data = ApiClient.get_ensembl_data(ensembl_url)
+        print(f"Ensembl lookup response: {ensembl_data}")
+        
+        if ensembl_data and len(ensembl_data) > 0:
+            ensembl_id = ensembl_data[0].get('id')
+            print(f"Found Ensembl ID: {ensembl_id}")
+            if ensembl_id:
+                # Try TARK search with Ensembl ID
+                params['identifier_field'] = ensembl_id
+                print(f"Trying TARK search with Ensembl ID. URL: {search_url}, Params: {params}")
+                new_data = ApiClient.get_tark_data(search_url, params)
+                print(f"TARK search with Ensembl ID result: {bool(new_data)}")
+                if new_data:
+                    logger.info(f"Found transcript data using Ensembl ID lookup for {identifier}")
+                    # Add warning about using Ensembl ID lookup
+                    for transcript in new_data:
+                        transcript['warning'] = {
+                            'message': f"Transcript found via Ensembl gene symbol lookup - clinical review recommended",
+                            'identifier': identifier,
+                            'type': 'ensembl_lookup'
+                        }
+                    data = new_data
+
+    if not data or (assembly == 'GRCh37' and not any(t for t in data if t['assembly'] == 'GRCh37')):
+        print("No data found after all attempts")
         return None
         
     # Filter and process transcripts based on assembly and version
