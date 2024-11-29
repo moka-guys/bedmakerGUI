@@ -12,7 +12,9 @@ body {
 }
 
 .navbar-custom {
-    background-color: #004a99;
+    background: linear-gradient(135deg, #004a99 0%, #0066cc 100%);
+    padding: 0.8rem 1rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .navbar-custom .navbar-brand,
@@ -22,9 +24,23 @@ body {
 
 .logo-container {
     background-color: #ffffff;
-    padding: 5px;
-    border-radius: 5px;
+    padding: 8px 15px;
+    border-radius: 8px;
+    transition: transform 0.2s ease;
     margin-left: auto;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.logo-container:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.logo-container img {
+    display: block;
+    height: 40px;
+    width: auto;
+    object-fit: contain;
 }
 
 [contenteditable=true]:empty:before {
@@ -63,17 +79,18 @@ body {
 }
 
 .navbar-custom .nav-link.btn-custom {
-    color: #004a99;
-    background-color: #ffffff;
-    border: 2px solid #004a99;
-    border-radius: 5px;
-    padding: 5px 10px;
-    transition: background-color 0.3s, color 0.3s;
+    color: #ffffff !important;
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    padding: 0.5rem 1.2rem;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    font-weight: 500;
 }
 
 .navbar-custom .nav-link.btn-custom:hover {
-    color: #ffffff;
-    background-color: #004a99;
+    background-color: #ffffff;
+    color: #004a99 !important;
+    transform: translateY(-1px);
 }
 
 .card {
@@ -568,4 +585,130 @@ pre code {
 pre code {
     white-space: pre-wrap;
     word-wrap: break-word;
+}
+
+/* Navbar styling */
+.navbar-custom {
+    background: linear-gradient(135deg, #004a99 0%, #0066cc 100%);
+    padding: 0.8rem 1rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Logo container styling */
+.logo-container {
+    background-color: #ffffff;
+    padding: 8px 15px;
+    border-radius: 8px;
+    transition: transform 0.2s ease;
+    margin-left: auto;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.logo-container:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.logo-container img {
+    display: block;
+    height: 40px;
+    width: auto;
+    object-fit: contain;
+}
+
+/* Navigation items styling */
+.navbar-nav .nav-link {
+    color: rgba(255, 255, 255, 0.9) !important;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.navbar-nav .nav-link:hover {
+    color: #ffffff !important;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.navbar-nav .nav-link.active {
+    background-color: rgba(255, 255, 255, 0.15);
+    color: #ffffff !important;
+}
+
+/* Dropdown styling */
+.dropdown-menu {
+    border: none;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    margin-top: 10px;
+    animation: dropdownFade 0.2s ease;
+}
+
+.dropdown-item {
+    padding: 0.7rem 1.2rem;
+    transition: all 0.2s ease;
+}
+
+.dropdown-item:hover {
+    background-color: #f8f9fa;
+    transform: translateX(5px);
+}
+
+.dropdown-item.active {
+    background-color: #e7f1ff;
+    color: #004a99;
+}
+
+/* Custom button styling */
+.btn-custom {
+    color: #ffffff !important;
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    padding: 0.5rem 1.2rem;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    font-weight: 500;
+}
+
+.btn-custom:hover {
+    background-color: #ffffff;
+    color: #004a99 !important;
+    transform: translateY(-1px);
+}
+
+/* Animation keyframes */
+@keyframes dropdownFade {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* User dropdown specific styling */
+#userDropdown {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+#userDropdown:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Responsive adjustments */
+@media (max-width: 991.98px) {
+    .navbar-custom {
+        padding: 0.5rem;
+    }
+    
+    .navbar-nav .nav-link {
+        padding: 0.7rem 1rem;
+        margin: 0.2rem 0;
+    }
+    
+    .logo-container {
+        padding: 5px 10px;
+    }
 }
