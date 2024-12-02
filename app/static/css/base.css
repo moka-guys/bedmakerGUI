@@ -768,6 +768,7 @@ h1, h2, h3, h4, h5, h6 {
     background-color: #ffffff !important;
     border-radius: 8px;
     overflow: hidden;
+    scroll-behavior: smooth;
 }
 
 .table thead th {
