@@ -294,9 +294,9 @@ def select_transcripts(data: List[Dict], assembly: str, version: Optional[str] =
         if mane_transcripts:
             return mane_transcripts
     elif assembly == 'GRCh37':
-        # For GRCh37, find the corresponding MANE transcript in GRCh38 to ensure consistency
+        # First try to find MANE Select transcript
         grch38_mane = next((t for t in data if t['assembly'] == 'GRCh38' and 
-                            t.get('mane_transcript_type') in ['MANE PLUS CLINICAL', 'MANE SELECT'] and 
+                            t.get('mane_transcript_type') == 'MANE SELECT' and 
                             t['stable_id'].startswith('NM')), None)
         if grch38_mane:
             matching_grch37 = [t for t in assembly_transcripts if t['stable_id'] == grch38_mane['stable_id']]
