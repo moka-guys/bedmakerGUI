@@ -15,57 +15,55 @@
         <div class="card-header" style="background-color: #f8f9fa;">
             <i class="bi bi-file-earmark-text" style="padding-right: 5px;"></i>Pending BED Files
         </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-bordered table-striped mb-0">
-                    <thead>
+        <div class="table-container">
+            <table class="table table-bordered table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>File Name</th>
+                        <th>Submitter</th>
+                        <th>5' UTR</th>
+                        <th>3' UTR</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for bed_file in bed_files if bed_file.status != 'published' %}
                         <tr>
-                            <th>ID</th>
-                            <th>File Name</th>
-                            <th>Submitter</th>
-                            <th>5' UTR</th>
-                            <th>3' UTR</th>
-                            <th>Status</th>
-                            <th>Actions</th>
+                            <td>{{ bed_file.id }}</td>
+                            <td>{{ bed_file.filename }}</td>
+                            <td>{{ bed_file.submitter.username }}</td>
+                            <td class="text-center">
+                                {% if bed_file.include_5utr %}
+                                    <i class="bi bi-check-circle-fill text-success" title="5' UTR included"></i>
+                                {% else %}
+                                    <i class="bi bi-x-circle-fill text-muted" title="5' UTR not included"></i>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if bed_file.include_3utr %}
+                                    <i class="bi bi-check-circle-fill text-success" title="3' UTR included"></i>
+                                {% else %}
+                                    <i class="bi bi-x-circle-fill text-muted" title="3' UTR not included"></i>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge rounded-pill bg-{{ bed_file.status|lower }}">
+                                    {{ bed_file.status }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if current_user.is_authorizer %}
+                                    <button class="btn btn-primary btn-sm review-bed-file" data-file-id="{{ bed_file.id }}">Review</button>
+                                    <button class="btn btn-danger btn-sm remove-bed-file" data-file-id="{{ bed_file.id }}">Delete entry</button>
+                                {% endif %}
+                                <button class="btn btn-info btn-sm view-details" data-file-id="{{ bed_file.id }}">View original query</button>
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        {% for bed_file in bed_files if bed_file.status != 'published' %}
-                            <tr>
-                                <td>{{ bed_file.id }}</td>
-                                <td>{{ bed_file.filename }}</td>
-                                <td>{{ bed_file.submitter.username }}</td>
-                                <td class="text-center">
-                                    {% if bed_file.include_5utr %}
-                                        <i class="bi bi-check-circle-fill text-success" title="5' UTR included"></i>
-                                    {% else %}
-                                        <i class="bi bi-x-circle-fill text-muted" title="5' UTR not included"></i>
-                                    {% endif %}
-                                </td>
-                                <td class="text-center">
-                                    {% if bed_file.include_3utr %}
-                                        <i class="bi bi-check-circle-fill text-success" title="3' UTR included"></i>
-                                    {% else %}
-                                        <i class="bi bi-x-circle-fill text-muted" title="3' UTR not included"></i>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <span class="badge rounded-pill bg-{{ bed_file.status|lower }}">
-                                        {{ bed_file.status }}
-                                    </span>
-                                </td>
-                                <td>
-                                    {% if current_user.is_authorizer %}
-                                        <button class="btn btn-primary btn-sm review-bed-file" data-file-id="{{ bed_file.id }}">Review</button>
-                                        <button class="btn btn-danger btn-sm remove-bed-file" data-file-id="{{ bed_file.id }}">Delete entry</button>
-                                    {% endif %}
-                                    <button class="btn btn-info btn-sm view-details" data-file-id="{{ bed_file.id }}">View original query</button>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -74,37 +72,35 @@
         <div class="card-header" style="background-color: #b9fbd8;">
             <i class="bi bi-check-circle" style="padding-right: 5px;"></i>Live BED Files
         </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-bordered table-striped mb-0">
-                    <thead>
+        <div class="table-container">
+            <table class="table table-bordered table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>File Name</th>
+                        <th>Submitter</th>
+                        <th>Authoriser</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for bed_file in bed_files if bed_file.status == 'published' %}
                         <tr>
-                            <th>ID</th>
-                            <th>File Name</th>
-                            <th>Submitter</th>
-                            <th>Authoriser</th>
-                            <th>Actions</th>
+                            <td>{{ bed_file.id }}</td>
+                            <td>{{ bed_file.filename }}</td>
+                            <td>{{ bed_file.submitter.username }}</td>
+                            <td>{{ bed_file.authorizer.username }}</td>
+                            <td>
+                                <button class="btn btn-success btn-sm open-in-results" data-file-id="{{ bed_file.id }}">Open in Results editor</button>
+                                {% if current_user.is_authorizer %}                                        
+                                    <button class="btn btn-danger btn-sm remove-bed-file" data-file-id="{{ bed_file.id }}">Delete entry</button>
+                                {% endif %}
+                                <button class="btn btn-info btn-sm view-details" data-file-id="{{ bed_file.id }}">View original query</button>
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        {% for bed_file in bed_files if bed_file.status == 'published' %}
-                            <tr>
-                                <td>{{ bed_file.id }}</td>
-                                <td>{{ bed_file.filename }}</td>
-                                <td>{{ bed_file.submitter.username }}</td>
-                                <td>{{ bed_file.authorizer.username }}</td>
-                                <td>
-                                    <button class="btn btn-success btn-sm open-in-results" data-file-id="{{ bed_file.id }}">Open in Results editor</button>
-                                    {% if current_user.is_authorizer %}                                        
-                                        <button class="btn btn-danger btn-sm remove-bed-file" data-file-id="{{ bed_file.id }}">Delete entry</button>
-                                    {% endif %}
-                                    <button class="btn btn-info btn-sm view-details" data-file-id="{{ bed_file.id }}">View original query</button>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 
