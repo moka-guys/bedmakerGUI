@@ -639,11 +639,15 @@ pre code {
 
 /* Dropdown styling */
 .dropdown-menu {
+    display: none;
+    position: absolute !important;
+    top: 100% !important;
+    left: auto !important;
+    right: 0 !important;
+    margin-top: 0.5rem;
     border: none;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
     border-radius: 8px;
-    margin-top: 10px;
-    animation: dropdownFade 0.2s ease;
 }
 
 .dropdown-item {
@@ -916,4 +920,109 @@ h1, h2, h3, h4, h5, h6 {
 
 .table-container::-webkit-scrollbar-thumb:hover {
     background-color: #555;
+}
+
+/* Remove all hover effects */
+.card:hover,
+.logo-container:hover,
+.btn-custom:hover,
+.dropdown-item:hover {
+    transform: none !important;
+    box-shadow: none !important;
+    background-color: inherit !important;
+    color: inherit !important;
+}
+
+/* Remove all transitions */
+* {
+    transition: none !important;
+}
+
+/* Simplify dropdown behavior */
+.dropdown-menu {
+    display: none;
+    position: absolute !important;
+    top: 100% !important;
+    left: auto !important;
+    right: 0 !important;
+    margin-top: 0.5rem;
+    border: none;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+}
+
+.dropdown-menu.show {
+    display: block;
+}
+
+/* Custom BED Files dropdown specific styling */
+#customBedDropdown {
+    position: relative;
+}
+
+.dropdown-menu {
+    position: absolute !important;
+    top: 100% !important;
+    left: auto !important;
+    right: 0 !important;
+    margin-top: 0 !important;
+    z-index: 1000 !important;
+    min-width: 160px !important;
+    padding: 0.25rem 0 !important;
+    background-color: #ffffff !important;
+    border: 1px solid rgba(0,0,0,.15) !important;
+    border-radius: 0 0 0.25rem 0.25rem !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,.1) !important;
+    transform: translateY(0) !important;
+}
+
+.dropdown-menu.show {
+    display: block !important;
+}
+
+/* Style dropdown items */
+.dropdown-item {
+    padding: 0.25rem 1rem !important;
+    font-size: 0.875rem !important;
+    background-color: #ffffff !important;
+}
+
+.dropdown-item:hover {
+    background-color: #f8f9fa !important;
+}
+
+/* Style dropdown header */
+.dropdown-header {
+    padding: 0.25rem 1rem !important;
+    font-size: 0.75rem !important;
+    color: #6c757d !important;
+    background-color: #ffffff !important;
+}
+
+/* Update dropdown styling */
+.dropdown-menu {
+    display: none;
+    position: absolute !important;
+    top: 100% !important;
+    left: auto !important;
+    right: 0 !important;
+    margin-top: 0.5rem;
+    border: none;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+}
+
+/* Remove the gap by adjusting the info icon positioning */
+#customBedDropdown + .fas.fa-info-circle {
+    position: absolute;
+    right: -25px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* Ensure proper dropdown button group styling */
+.btn-group {
+    position: relative;
+    display: inline-flex;
+    vertical-align: middle;
 }
