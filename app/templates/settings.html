@@ -56,7 +56,7 @@
                                     <!-- Regular Padding Setting -->
                                     <div class="mb-4">
                                         <label class="form-label">Regular Padding</label>
-                                        {{ form[bed_type + '_padding'](class="form-control") }}
+                                        {{ form[bed_type + '_padding'](class="form-control", value=form[bed_type + '_padding'].data or 0) }}
                                         {% if form[bed_type + '_padding'].errors %}
                                             {% for error in form[bed_type + '_padding'].errors %}
                                                 <div class="invalid-feedback d-block">{{ error }}</div>
@@ -67,10 +67,7 @@
                                     <!-- SNP Padding Setting -->
                                     <div class="mb-4">
                                         <label class="form-label">SNP Padding</label>
-                                        {{ form[bed_type + '_snp_padding'](
-                                            class="form-control",
-                                            value=form[bed_type + '_snp_padding'].data or 0
-                                        ) }}
+                                        {{ form[bed_type + '_snp_padding'](class="form-control", value=form[bed_type + '_snp_padding'].data or 0) }}
                                         {% if form[bed_type + '_snp_padding'].errors %}
                                             {% for error in form[bed_type + '_snp_padding'].errors %}
                                                 <div class="invalid-feedback d-block">{{ error }}</div>
