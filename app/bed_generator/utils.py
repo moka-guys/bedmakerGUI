@@ -185,47 +185,62 @@ def store_panels_in_json(panels_data: List[Dict[str, Any]]) -> None:
     """
     Stores panel data in a JSON file, formatting panel names with R-codes.
     """
-    for panel in panels_data:
-        panel['id'] = int(panel['id'])
+    try:
+        for panel in panels_data:
+            panel['id'] = int(panel['id'])
+            
+            # Get R-code from relevant_disorders
+            r_code = next((disorder for disorder in panel.get('relevant_disorders', []) 
+                          if disorder.startswith('R')), '')
+            
+            # Format the full name
+            panel['full_name'] = f"{r_code} - {panel['name']}" if r_code else panel['name']
         
-        # Get R-code from relevant_disorders
-        r_code = next((disorder for disorder in panel.get('relevant_disorders', []) 
-                      if disorder.startswith('R')), '')
+        # Use UTC time for consistency
+        current_time = datetime.datetime.utcnow().isoformat()
         
-        # Format the full name
-        panel['full_name'] = f"{r_code} - {panel['name']}" if r_code else panel['name']
-    
-    data_to_store = {
-        'last_updated': datetime.datetime.now().isoformat(),
-        'panels': panels_data
-    }
-    
-    with open(PANELS_JSON_PATH, 'w') as json_file:
-        json.dump(data_to_store, json_file, indent=2)
+        data_to_store = {
+            'last_updated': current_time,
+            'panels': panels_data
+        }
+        
+        # Ensure the directory exists
+        os.makedirs(os.path.dirname(PANELS_JSON_PATH), exist_ok=True)
+        
+        with open(PANELS_JSON_PATH, 'w') as json_file:
+            json.dump(data_to_store, json_file, indent=2)
+            
+        current_app.logger.info(f"Successfully stored {len(panels_data)} panels to {PANELS_JSON_PATH}")
+        
+    except Exception as e:
+        current_app.logger.error(f"Error storing panels in JSON: {str(e)}")
+        raise
 
 def get_panels_from_json() -> Tuple[List[Dict[str, Any]], str]:
     """
     Retrieves panel data and last updated timestamp from a JSON file.
-
-    Returns:
-        A tuple containing a list of dictionaries with panel information and the last updated timestamp.
     """
     if not os.path.exists(PANELS_JSON_PATH):
+        current_app.logger.warning(f"Panels JSON file not found at {PANELS_JSON_PATH}")
         return [], ''
-    with open(PANELS_JSON_PATH, 'r') as json_file:
-        data = json.load(json_file)
+        
+    try:
+        with open(PANELS_JSON_PATH, 'r') as json_file:
+            data = json.load(json_file)
+            
+        if isinstance(data, dict):
+            return data.get('panels', []), data.get('last_updated', '')
+        elif isinstance(data, list):
+            current_app.logger.warning("Found old format panels JSON (list instead of dict)")
+            return data, ''
+        else:
+            current_app.logger.error(f"Unexpected data format in panels JSON: {type(data)}")
+            return [], ''
+            
+    except Exception as e:
+        current_app.logger.error(f"Error reading panels from JSON: {str(e)}")
+        return [], ''
     
-    if isinstance(data, list):
-        # Old format: just a list of panels
-        return data, ''
-    elif isinstance(data, dict):
-        # New format: dictionary with 'panels' and 'last_updated'
-        return data.get('panels', []), data.get('last_updated', '')
-    else:
-        # Unexpected data format
-        print(f"Unexpected data format in panels JSON: {type(data)}")
-        return [], ''
-
 def store_genes_in_json(panel_id: int, genes_data: List[Dict[str, Any]]) -> None:
     """
     Stores gene data for a specific panel in a JSON file.

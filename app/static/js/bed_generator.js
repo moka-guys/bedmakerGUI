@@ -125,11 +125,30 @@ function refreshPanels() {
         })
         .then(data => {
             console.log("Received data:", data);
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            // Update the panel dropdown
             updatePanelDropdown(data);
+            
+            // Update last updated time
+            if (data.last_updated) {
+                const date = new Date(data.last_updated);
+                document.getElementById('lastUpdated').textContent = 
+                    'Last updated: ' + date.toLocaleString('en-GB', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+            }
         })
         .catch(error => {
             console.error('Error refreshing panels:', error);
-            alert('Failed to refresh panels. Please check the console for more details.');
+            alert('Failed to refresh panels: ' + error.message);
         })
         .finally(() => {
             console.log("Refresh operation completed");
@@ -155,7 +174,8 @@ function updatePanelDropdown(data) {
             select.add(option);
         });
         if (data.last_updated) {
-            document.getElementById('lastUpdated').textContent = 'Last updated: ' + new Date(data.last_updated).toLocaleString();
+            const date = new Date(data.last_updated);
+            document.getElementById('lastUpdated').textContent = 'Last updated: ' + date.toLocaleString();
         }
     } else {
         console.error('Unexpected data format:', data);

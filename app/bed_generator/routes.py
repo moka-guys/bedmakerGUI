@@ -24,7 +24,7 @@ from typing import List, Dict, Optional
 from flask_login import current_user, login_required
 from app.bed_generator import bed_generator_bp
 from app.bed_generator.utils import (
-    store_panels_in_json, get_panels_from_json, load_settings, collect_warnings, increment_version_number, process_tark_data
+    store_panels_in_json, get_panels_from_json, load_settings, collect_warnings, increment_version_number, process_tark_data, fetch_genes_for_panel
 )
 from app.bed_generator.logic import process_form_data, store_results_in_session, process_bulk_data, get_mane_plus_clinical_identifiers, generate_bed_file
 from app.forms import SettingsForm, BedGeneratorForm
@@ -276,9 +276,15 @@ def refresh_panels():
     """
     try:
         panels = fetch_panels_from_panelapp()
+        # Store the panels in the JSON file
+        store_panels_in_json(panels)
+        
+        # Read back the stored data to ensure consistency
+        stored_panels, last_updated = get_panels_from_json()
+        
         return jsonify({
-            'panels': panels,
-            'last_updated': datetime.now().isoformat()
+            'panels': stored_panels,
+            'last_updated': last_updated
         })
     except Exception as e:
         current_app.logger.error(f"Error in refresh_panels: {str(e)}")
@@ -290,30 +296,17 @@ def refresh_panels():
 def get_genes_by_panel(panel_id):
     """
     Retrieves genes associated with a specific panel.
-    
-    Args:
-        panel_id: The ID of the panel to retrieve genes for.
-    
-    Returns a JSON response with the list of genes or an error message if the panel is not found.
     """
-    panels, last_updated = get_panels_from_json()
-    
-    if not isinstance(panels, list):
-        return jsonify({'gene_list': [], 'error': 'Invalid panel data format'})
-    
     try:
-        panel = next((p for p in panels if str(p.get('id')) == str(panel_id) or p.get('full_name') == panel_id), None)
-        
-        if panel:
-            if 'genes' in panel:
-                return jsonify({'gene_list': panel['genes']})
-            else:
-                return jsonify({'gene_list': [], 'error': 'Panel found but contains no genes'})
+        # Fetch genes directly from PanelApp API
+        genes = fetch_genes_for_panel(int(panel_id), include_amber=True, include_red=True)
+        if genes:
+            return jsonify({'gene_list': genes})
         else:
-            return jsonify({'gene_list': [], 'error': 'Panel not found'})
+            return jsonify({'gene_list': [], 'error': 'No genes found for this panel'})
     except Exception as e:
-        print(f"Error processing panel data: {str(e)}")
-        return jsonify({'gene_list': [], 'error': f'Error processing panel data: {str(e)}'})
+        print(f"Error fetching genes for panel {panel_id}: {str(e)}")
+        return jsonify({'gene_list': [], 'error': f'Error fetching genes: {str(e)}'})
 
 
 @bed_generator_bp.route('/settings', methods=['GET', 'POST'])

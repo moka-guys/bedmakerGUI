@@ -569,7 +569,7 @@ def fetch_panels_from_panelapp():
 
 def fetch_genes_for_panel(panel_id: int, include_amber: bool, include_red: bool) -> List[Dict]:
     """
-    Fetches genes associated with a specific panel from PanelApp, filtered by confidence level.
+    Fetches genes associated with a specific panel from PanelApp.
 
     Args:
         panel_id (int): The ID of the panel.
@@ -580,13 +580,39 @@ def fetch_genes_for_panel(panel_id: int, include_amber: bool, include_red: bool)
         List[Dict]: A list of dictionaries containing gene information.
     """
     url = f"{PANELAPP_API_URL}panels/{panel_id}/"
-    data = ApiClient.get_panelapp_data(url)
-    if not data:
+    
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        
+        if not data.get('genes'):
+            print(f"No genes found in panel data: {data}")
+            return []
+        
+        genes = []
+        for gene in data['genes']:
+            confidence = str(gene.get('confidence_level', '0'))
+            
+            # Only include genes based on confidence level settings
+            if (confidence == '3' or 
+                (confidence == '2' and include_amber) or 
+                (confidence == '1' and include_red)):
+                
+                genes.append({
+                    'symbol': gene.get('gene_data', {}).get('gene_symbol', ''),
+                    'confidence': confidence
+                })
+        
+        print(f"Found {len(genes)} genes for panel {panel_id}")
+        return genes
+        
+    except requests.RequestException as e:
+        print(f"Error fetching genes from PanelApp: {str(e)}")
         return []
-
-    confidence_levels = ['3'] + (['2'] if include_amber else []) + (['1'] if include_red else [])
-    return [{'symbol': gene['gene_data']['gene_symbol'], 'confidence': gene['confidence_level']} 
-            for gene in data['genes'] if gene['confidence_level'] in confidence_levels]
+    except Exception as e:
+        print(f"Unexpected error fetching genes: {str(e)}")
+        return []
 
 def validate_coordinates(coordinates: str) -> Optional[str]:
     """
