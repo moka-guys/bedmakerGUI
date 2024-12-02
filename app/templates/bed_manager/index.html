@@ -457,7 +457,7 @@
             document.querySelector('#detailsModal .modal-footer .btn-outline-secondary')
                 .setAttribute('data-query', JSON.stringify(queryData));
             
-            // Define workflow steps
+            // Define workflow steps with corrected padding access
             const workflowSteps = [
                 {
                     icon: 'bi-info-circle',
@@ -507,7 +507,7 @@
                     content: `
                         <div class="parameter-tag">
                             <span class="param-label">Padding:</span>
-                            <span class="param-value">${queryData.padding || '30bp'}</span>
+                            <span class="param-value">${queryData.settings?.padding?.standard || '0'}bp</span>
                         </div>
                     `
                 },
@@ -517,8 +517,18 @@
                     content: `
                         <div class="parameter-tag">
                             <span class="param-label">SNP Padding:</span>
-                            <span class="param-value">${queryData.snp_padding || '5bp'}</span>
+                            <span class="param-value">${queryData.settings?.padding?.snp || '0'}bp</span>
                         </div>
+                        ${queryData.use_separate_snp_padding ? `
+                            <div class="parameter-tag">
+                                <span class="param-label">5' SNP Padding:</span>
+                                <span class="param-value">${queryData.snp_padding_5 || '0'}bp</span>
+                            </div>
+                            <div class="parameter-tag">
+                                <span class="param-label">3' SNP Padding:</span>
+                                <span class="param-value">${queryData.snp_padding_3 || '0'}bp</span>
+                            </div>
+                        ` : ''}
                     `
                 },
                 {

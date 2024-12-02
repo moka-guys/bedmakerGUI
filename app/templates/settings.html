@@ -53,9 +53,9 @@
                                         {{ bed_type }} BED Settings
                                     </h5>
                                     
-                                    <!-- Regular Padding Setting -->
+                                    <!-- Exon Padding Setting -->
                                     <div class="mb-4">
-                                        <label class="form-label">Regular Padding</label>
+                                        <label class="form-label">Exon Padding</label>
                                         {{ form[bed_type + '_padding'](class="form-control", value=form[bed_type + '_padding'].data or 0) }}
                                         {% if form[bed_type + '_padding'].errors %}
                                             {% for error in form[bed_type + '_padding'].errors %}
