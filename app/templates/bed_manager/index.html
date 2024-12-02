@@ -112,13 +112,13 @@
     <div class="modal fade" id="bedFileModal">
         <div class="modal-dialog" style="max-width: 70vw;">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="bi bi-file-text"></i>Original Query Details
+                <div class="modal-header" style="background: linear-gradient(45deg, #f8f9fa, #ffffff);">
+                    <h5 class="modal-title" style="color: #004a99; font-weight: 600; letter-spacing: 0.5px;">
+                        <i class="bi bi-file-text" style="padding-right: 5px;"></i>Original Query Details
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body" id="bedFileModalBody" style="background-color: #fafafa;">
                     <!-- Content will be loaded here -->
                 </div>
                 <div class="modal-footer">
@@ -135,9 +135,7 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="detailsModalLabel">
-                        <i class="bi bi-info-circle"></i>BED File Details
-                    </h5>
+                    <h5 class="modal-title" id="detailsModalLabel">BED File Details</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -461,7 +459,7 @@
             document.querySelector('#detailsModal .modal-footer .btn-primary')
                 .setAttribute('data-query', JSON.stringify(queryData));
             document.querySelector('#detailsModal .modal-footer .btn-outline-secondary')
-                .setAttribute('data-query', JSON.stringify(JSON.stringify(queryData)));
+                .setAttribute('data-query', JSON.stringify(queryData));
             
             // Define workflow steps
             const workflowSteps = [
@@ -498,11 +496,11 @@
                     title: 'Input Data',
                     content: `
                         <div class="d-flex gap-2">
-                            <button class="btn btn-outline-primary btn-sm">
+                            <button class="btn btn-outline-primary btn-sm" onclick='showInputDetails("coordinates", ${JSON.stringify(JSON.stringify(queryData))})'>
                                 <i class="bi bi-geo-alt"></i> Coordinates
                             </button>
-                            <button class="btn btn-outline-primary btn-sm">
-                                <i class="bi bi-list-ol"></i> ${queryData.transcripts || 4} transcripts
+                            <button class="btn btn-outline-primary btn-sm" onclick='showInputDetails("transcripts", ${JSON.stringify(JSON.stringify(queryData))})'>
+                                <i class="bi bi-list-ol"></i> Identifiers
                             </button>
                         </div>
                     `
@@ -545,7 +543,7 @@
                 }
             ];
 
-            // Create the workflow steps HTML with no arrows
+            // Create the workflow steps HTML
             const stepsHtml = workflowSteps.map(step => `
                 <div class="workflow-step">
                     <div class="step-header">
@@ -702,6 +700,65 @@
                 console.error('Error processing query data:', error);
                 alert('Failed to re-run query. Please try again.');
             }
+        }
+
+        // Update the showInputDetails function
+        function showInputDetails(type, dataStr) {
+            try {
+                const data = JSON.parse(dataStr);
+                let title = type === 'coordinates' ? 'Coordinate List' : 'Identifier List';
+                let content = '';
+
+                if (type === 'coordinates') {
+                    content = data.coordinates || 'No coordinates specified';
+                } else {
+                    content = data.identifiers || 'No identifiers specified';
+                }
+
+                if (content === '') {
+                    content = `No ${type} specified`;
+                }
+
+                // Format content as a list if it's multiple items
+                const contentArray = Array.isArray(content) ? content : content.split('\n');
+                const formattedList = contentArray
+                    .filter(item => item.trim())
+                    .map(item => item.trim())
+                    .join('\n');
+
+                const formattedContent = `
+                    <div class="input-details-container">
+                        <pre class="data-display-box"><code class="data-content">${formattedList}</code></pre>
+                        <div class="copy-button-container">
+                            <button class="btn btn-sm btn-outline-secondary copy-btn" onclick="copyToClipboard(this)">
+                                <i class="bi bi-clipboard"></i> Copy to clipboard
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                showDataModal(title, formattedContent);
+            } catch (error) {
+                console.error('Error processing data:', error);
+                showDataModal(type === 'coordinates' ? 'Coordinate List' : 'Identifier List', 'Error processing data');
+            }
+        }
+
+        // Update the copyToClipboard function
+        function copyToClipboard(button, elementId) {
+            const content = document.querySelector('.data-content').textContent;
+            navigator.clipboard.writeText(content).then(() => {
+                const originalHTML = button.innerHTML;
+                button.innerHTML = '<i class="bi bi-check"></i> Copied!';
+                button.disabled = true;
+                setTimeout(() => {
+                    button.innerHTML = originalHTML;
+                    button.disabled = false;
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+                alert('Failed to copy to clipboard');
+            });
         }
     </script>
 {% endblock %}
