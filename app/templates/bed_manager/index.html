@@ -91,7 +91,6 @@
                             <td>{{ bed_file.submitter.username }}</td>
                             <td>{{ bed_file.authorizer.username }}</td>
                             <td>
-                                <button class="btn btn-success btn-sm open-in-results" data-file-id="{{ bed_file.id }}">Open in Results editor</button>
                                 {% if current_user.is_authorizer %}                                        
                                     <button class="btn btn-danger btn-sm remove-bed-file" data-file-id="{{ bed_file.id }}">Delete entry</button>
                                 {% endif %}
@@ -119,7 +118,6 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-primary" data-bs-dismiss="modal" data-file-id="">Authorise and publish BED</button>
-                    <button type="button" class="btn btn-success" onclick="reloadBedResults(this.getAttribute('data-file-id'))">Open in Results editor</button>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
@@ -169,7 +167,6 @@
                     .then(html => {
                         document.getElementById('bedFileModalBody').innerHTML = html;
                         document.querySelector('#bedFileModal .btn-primary').setAttribute('data-file-id', fileId);
-                        document.querySelector('#bedFileModal .btn-success').setAttribute('data-file-id', fileId);
                         
                         // Add the fileAction event listener only after the modal content is loaded
                         const fileActionSelect = document.getElementById('fileAction');
@@ -201,15 +198,6 @@
                                 alert('An error occurred while removing the BED file.');
                             });
                     }
-                });
-            });
-
-            // Add event listener for "Open in Results editor" buttons in the Live BED table
-            document.querySelectorAll('.open-in-results').forEach(function(button) {
-                button.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    var fileId = this.getAttribute('data-file-id');
-                    reloadBedResults(fileId);
                 });
             });
 
@@ -503,7 +491,7 @@
                 },
                 {
                     icon: 'bi-arrows-expand',
-                    title: 'Standard Padding',
+                    title: 'Exon Padding',
                     content: `
                         <div class="parameter-tag">
                             <span class="param-label">Padding:</span>

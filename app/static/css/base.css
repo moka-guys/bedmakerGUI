@@ -113,11 +113,8 @@ body {
 
 .card-header {
     background: linear-gradient(45deg, #f8f9fa, #ffffff) !important;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
-    font-weight: 600;
-    color: #004a99;
-    padding: 15px 20px;
-    border-radius: 12px 12px 0 0 !important;
+    border-bottom: 1px solid rgba(0, 74, 153, 0.1) !important;
+    padding: 1.25rem 1.5rem !important;
 }
 
 .card-body {
@@ -366,12 +363,15 @@ select.form-control {
 .page-title {
     color: #004a99;
     font-weight: 600;
-    letter-spacing: 0.5px;
+    font-size: 1.4rem;
+    margin: 0;
+    letter-spacing: 0.2px;
 }
 
 .card-header i {
     color: #004a99;
-    margin-right: 8px;
+    opacity: 0.9;
+    margin-right: 10px;
 }
 
 .text-muted {

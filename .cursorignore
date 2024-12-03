@@ -8,7 +8,4 @@
 *.db
 *.sqlite
 *.sqlite3
-migrations/
-templates/auth/
-templates/bed_manager/
-templates/base.html
+migrations/*
