@@ -169,7 +169,7 @@ def generate_bed_file(bed_type: str, results: List[Dict[str, Any]], filename_pre
         padding_map = {
             'data': settings.get('data_padding', 0),
             'sambamba': settings.get('sambamba_padding', 0),
-            'exome_depth': settings.get('exomeDepth_padding', 0),
+            'exomeDepth': settings.get('exomeDepth_padding', 0),
             'cnv': settings.get('cnv_padding', 0)
         }
         
@@ -177,7 +177,7 @@ def generate_bed_file(bed_type: str, results: List[Dict[str, Any]], filename_pre
         utr_settings = {
             'data': (settings.get('data_include_5utr', False), settings.get('data_include_3utr', False)),
             'sambamba': (settings.get('sambamba_include_5utr', False), settings.get('sambamba_include_3utr', False)),
-            'exome_depth': (settings.get('exomeDepth_include_5utr', False), settings.get('exomeDepth_include_3utr', False)),
+            'exomeDepth': (settings.get('exomeDepth_include_5utr', False), settings.get('exomeDepth_include_3utr', False)),
             'cnv': (settings.get('cnv_include_5utr', False), settings.get('cnv_include_3utr', False))
         }
         

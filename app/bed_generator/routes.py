@@ -473,24 +473,24 @@ def download_custom_bed(bed_type):
         settings = Settings.get_settings()
         
         # Get settings for this bed type
-        db_type = bed_type.lower()
+
         bed_settings = {
-            'include_5utr': getattr(settings, f'{db_type}_include_5utr', False),
-            'include_3utr': getattr(settings, f'{db_type}_include_3utr', False)
+            'include_5utr': getattr(settings, f'{bed_type}_include_5utr', False),
+            'include_3utr': getattr(settings, f'{bed_type}_include_3utr', False)
         }
         
         # Process entries
         processed_results = process_bed_entries(
             results,
             bed_settings,
-            padding=getattr(settings, f'{db_type}_padding', 0),
-            snp_padding=getattr(settings, f'{db_type}_snp_padding', 0)
+            padding=getattr(settings, f'{bed_type}_padding', 0),
+            snp_padding=getattr(settings, f'{bed_type}_snp_padding', 0)
         )
         
         # Generate BED file content
         bed_content = BedGenerator.create_formatted_bed(
             results=processed_results,
-            format_type=db_type,
+            format_type=bed_type,
             add_chr_prefix=data.get('addChrPrefix', False)
         )
         
