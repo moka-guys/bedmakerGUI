@@ -54,6 +54,12 @@
                                 </span>
                             </td>
                             <td>
+                                {% if bed_file.file_blob %}
+                                    <a href="{{ url_for('bed_manager.download_bed_file', file_id=bed_file.id) }}" 
+                                       class="btn btn-success btn-sm">
+                                        <i class="bi bi-download"></i> Download
+                                    </a>
+                                {% endif %}
                                 {% if current_user.is_authorizer %}
                                     <button class="btn btn-primary btn-sm review-bed-file" data-file-id="{{ bed_file.id }}">Review</button>
                                     <button class="btn btn-danger btn-sm remove-bed-file" data-file-id="{{ bed_file.id }}">Delete entry</button>
@@ -91,6 +97,12 @@
                             <td>{{ bed_file.submitter.username }}</td>
                             <td>{{ bed_file.authorizer.username }}</td>
                             <td>
+                                {% if bed_file.file_blob %}
+                                    <a href="{{ url_for('bed_manager.download_bed_file', file_id=bed_file.id) }}" 
+                                       class="btn btn-success btn-sm">
+                                        <i class="bi bi-download"></i> Download
+                                    </a>
+                                {% endif %}
                                 {% if current_user.is_authorizer %}                                        
                                     <button class="btn btn-danger btn-sm remove-bed-file" data-file-id="{{ bed_file.id }}">Delete entry</button>
                                 {% endif %}

@@ -13,11 +13,12 @@ Routes:
 - file_details(file_id): Retrieves and returns detailed information about a specific BED file.
 """
 
-from flask import render_template, request, redirect, url_for, flash, jsonify, session
+from flask import render_template, request, redirect, url_for, flash, jsonify, session, send_file
 from flask_login import login_required, current_user
 from app.bed_manager import bed_manager_bp
 from app.models import BedFile, BedEntry
 from app import db
+from io import BytesIO
 import re
 import json
 
@@ -243,3 +244,23 @@ def file_details(file_id):
         'initial_query': initial_query,
         'warning': json.loads(bed_file.warning) if bed_file.warning else None
     })
+
+@bed_manager_bp.route('/download/<int:file_id>')
+@login_required
+def download_bed_file(file_id):
+    bed_file = BedFile.query.get_or_404(file_id)
+    
+    if bed_file.file_blob:
+        # Create a BytesIO object from the stored blob
+        file_data = BytesIO(bed_file.file_blob)
+        file_data.seek(0)
+        
+        return send_file(
+            file_data,
+            mimetype='text/plain',
+            as_attachment=True,
+            download_name=f"{bed_file.filename}.bed"
+        )
+    else:
+        flash('No file content available for download.', 'error')
+        return redirect(url_for('bed_manager.index'))
