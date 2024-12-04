@@ -375,7 +375,8 @@ def submit_for_review():
             
             # Create entries and generate file
             BedEntry.create_entries(base_bed_file.id, processed_results)
-            generate_bed_files(file_name, processed_results, settings.to_dict())
+            from app.bed_generator.bed_generator import generate_bed_files as bed_generator_generate_files
+            bed_generator_generate_files(file_name, processed_results, settings.to_dict())
             
         else:
             # Process each BED type
@@ -423,7 +424,8 @@ def submit_for_review():
                 
                 # Create entries and generate file
                 BedEntry.create_entries(bed_file.id, processed_results)
-                generate_bed_files(type_filename, processed_results, settings.to_dict())
+                from app.bed_generator.bed_generator import generate_bed_files as bed_generator_generate_files
+                bed_generator_generate_files(type_filename, processed_results, settings.to_dict())
         
         db.session.commit()
         return jsonify({'success': True})
@@ -433,36 +435,6 @@ def submit_for_review():
         current_app.logger.error("Full traceback:", exc_info=True)
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
-
-def generate_bed_files(file_name: str, results: List[Dict], settings: Dict) -> None:
-    """
-    Generate BED files with the provided results.
-    
-    Args:
-        file_name: Base name for the BED file
-        results: List of processed BED entries
-        settings: Application settings dictionary
-    """
-    try:
-        # Generate BED content
-        bed_content = BedGenerator.create_formatted_bed(
-            results=results,
-            format_type='raw',  # or specify type based on filename
-            add_chr_prefix=False
-        )
-        
-        # Write the file
-        draft_dir = current_app.config.get('DRAFT_BED_FILES_DIR')
-        os.makedirs(draft_dir, exist_ok=True)
-        file_path = os.path.join(draft_dir, f"{file_name}.bed")
-        
-        with open(file_path, 'w') as f:
-            f.write(bed_content)
-            
-    except Exception as e:
-        current_app.logger.error(f"Error generating BED file: {str(e)}")
-        current_app.logger.error("Full traceback:", exc_info=True)
-        raise
 
 @bed_generator_bp.route('/download_raw_bed', methods=['POST'])
 def download_raw_bed():

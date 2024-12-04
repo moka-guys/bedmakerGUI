@@ -45,6 +45,7 @@ class BedFile(db.Model):
     include_3utr = db.Column(db.Boolean, default=False)
     include_5utr = db.Column(db.Boolean, default=False)
     warning = db.Column(db.Text)
+    file_blob = db.Column(db.LargeBinary)
 
     submitter = db.relationship('User', foreign_keys=[submitter_id], backref='submitted_bed_files')
     authorizer = db.relationship('User', foreign_keys=[authorizer_id], backref='authorized_bed_files')

@@ -14,6 +14,8 @@ Functions:
 from typing import List, Dict, Union
 from flask import current_app
 import os
+from app.models import BedFile
+from app.extensions import db
 
 class BedGenerator:
     # Define format configurations as a class attribute
@@ -143,23 +145,38 @@ class BedGenerator:
 
 def generate_bed_files(filename: str, results: List[Dict], settings: Dict) -> None:
     """
-    Generates different BED file formats based on stored settings in database.
+    Generates different BED file formats and stores them both in the database and filesystem.
     """
     bed_dir = current_app.config.get('DRAFT_BED_FILES_DIR')
     os.makedirs(bed_dir, exist_ok=True)
 
+    # Map of bed types to their creation functions
     bed_types = {
-        'raw': lambda r, p: BedGenerator.create_raw_bed(r, add_chr_prefix=False),
-        'data': lambda r, p: BedGenerator.create_formatted_bed(r, 'data', p),
-        'sambamba': lambda r, p: BedGenerator.create_formatted_bed(r, 'sambamba', p),
-        'exomeDepth': lambda r, p: BedGenerator.create_formatted_bed(r, 'exomeDepth', p),
-        'CNV': lambda r, p: BedGenerator.create_formatted_bed(r, 'cnv', p)
+        'data': lambda r, p: BedGenerator.create_formatted_bed(r, 'data', False),
+        'sambamba': lambda r, p: BedGenerator.create_formatted_bed(r, 'sambamba', False),
+        'exomeDepth': lambda r, p: BedGenerator.create_formatted_bed(r, 'exomeDepth', False),
+        'cnv': lambda r, p: BedGenerator.create_formatted_bed(r, 'cnv', False)
     }
 
+    # Get the actual filename without the type suffix
+    base_filename = filename.rsplit('_', 1)[0] if '_' in filename else filename
+
     for bed_type, create_function in bed_types.items():
-        padding = settings.get('padding', {}).get(bed_type, 0)
-        content = create_function(results, padding)
-        
-        file_path = os.path.join(bed_dir, f"{filename}_{bed_type}.bed")
-        with open(file_path, 'w') as f:
-            f.write(content)
+        # Only process if this is the matching bed type for the current file
+        if filename.endswith(f"_{bed_type}"):
+            padding = settings.get('padding', {}).get(bed_type, 0)
+            content = create_function(results, padding)
+            
+            # Save to filesystem
+            file_path = os.path.join(bed_dir, f"{filename}.bed")
+            with open(file_path, 'w') as f:
+                f.write(content)
+                
+            # Save to database using the exact filename
+            bed_file = BedFile.query.filter_by(filename=filename).first()
+            if bed_file:
+                print(f"Found BedFile record for {filename}")
+                bed_file.file_blob = content.encode('utf-8')
+                db.session.add(bed_file)
+                db.session.commit()
+                break  # Exit after processing the matching type
