@@ -35,11 +35,6 @@ body {
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
-.logo-container:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
 .logo-container img {
     display: block;
     height: 40px;
@@ -94,7 +89,6 @@ body {
 .navbar-custom .nav-link.btn-custom:hover {
     background-color: #ffffff;
     color: #004a99 !important;
-    transform: translateY(-1px);
 }
 
 .card {
@@ -106,7 +100,6 @@ body {
 }
 
 .card:hover {
-    transform: translateY(-2px);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12) !important;
     transition: all 0.2s ease;
 }
@@ -440,7 +433,7 @@ select.form-control {
 }
 
 .workflow-step:hover {
-    transform: translateY(-2px);
+    /* Remove transform */
 }
 
 .workflow-step::after {
@@ -600,11 +593,6 @@ pre code {
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
-.logo-container:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
 .logo-container img {
     display: block;
     height: 40px;
@@ -651,7 +639,6 @@ pre code {
 
 .dropdown-item:hover {
     background-color: #f8f9fa;
-    transform: translateX(5px);
 }
 
 .dropdown-item.active {
@@ -672,7 +659,6 @@ pre code {
 .btn-custom:hover {
     background-color: #ffffff;
     color: #004a99 !important;
-    transform: translateY(-1px);
 }
 
 /* Animation keyframes */
@@ -773,7 +759,6 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Add hover effects */
 .card:hover {
-    transform: translateY(-2px);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12) !important;
     transition: all 0.2s ease;
 }
@@ -915,17 +900,6 @@ h1, h2, h3, h4, h5, h6 {
 
 .table-container::-webkit-scrollbar-thumb:hover {
     background-color: #555;
-}
-
-/* Remove all hover effects */
-.card:hover,
-.logo-container:hover,
-.btn-custom:hover,
-.dropdown-item:hover {
-    transform: none !important;
-    box-shadow: none !important;
-    background-color: inherit !important;
-    color: inherit !important;
 }
 
 /* Remove all transitions */
@@ -1120,42 +1094,61 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Action buttons within tables */
-.table .action-buttons {
+.action-buttons {
     display: flex;
-    gap: 4px;
+    gap: 6px;
     align-items: center;
+    justify-content: flex-start;
 }
 
-.table .btn-sm {
+.action-buttons .btn {
     padding: 4px 8px;
-    font-size: 0.8rem;
-    height: 28px;
-    min-width: 28px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    min-width: 32px;
+    height: 32px;
 }
 
-.table .btn-sm i {
-    font-size: 0.9rem;
+.action-buttons .btn i {
+    font-size: 1rem;
 }
 
-/* Subtle button colors in tables */
-.table .btn-success { 
-    background-color: rgba(25, 135, 84, 0.9); 
-}
-.table .btn-info { 
-    background-color: rgba(13, 202, 240, 0.9); 
-}
-.table .btn-primary { 
-    background-color: rgba(13, 110, 253, 0.9); 
-}
-.table .btn-danger { 
-    background-color: rgba(220, 53, 69, 0.9); 
+/* Status badges */
+.badge {
+    padding: 0.35em 0.65em;
+    font-size: 0.75em;
+    font-weight: 500;
+    border-radius: 12px;
 }
 
-/* Hover states */
-.table .btn-success:hover { background-color: #157347; }
-.table .btn-info:hover { background-color: #0bb2d4; }
-.table .btn-primary:hover { background-color: #0b5ed7; }
-.table .btn-danger:hover { background-color: #bb2d3b; }
+/* Custom scrollbar for tables */
+.table-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+    background-color: #c1c1c1;
+    border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+    background-color: #a8a8a8;
+}
+
+/* Preserve button colors and styles */
+.btn-success { background-color: #198754; border-color: #198754; color: white; }
+.btn-info { background-color: #0dcaf0; border-color: #0dcaf0; color: white; }
+.btn-primary { background-color: #0d6efd; border-color: #0d6efd; color: white; }
+.btn-danger { background-color: #dc3545; border-color: #dc3545; color: white; }
+
+.btn-success:hover { background-color: #157347; border-color: #157347; }
+.btn-info:hover { background-color: #0bb2d4; border-color: #0bb2d4; }
+.btn-primary:hover { background-color: #0b5ed7; border-color: #0b5ed7; }
+.btn-danger:hover { background-color: #bb2d3b; border-color: #bb2d3b; }

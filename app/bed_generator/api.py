@@ -638,23 +638,3 @@ def validate_coordinates(coordinates: str) -> Optional[str]:
         return "End position cannot be less than start position."
 
     return None
-
-def get_transcript_data(identifier: str) -> List[Dict]:
-    """Gets transcript data from Tark API."""
-    # Check if identifier includes a version
-    if '.' in identifier and any(identifier.startswith(prefix) for prefix in ['NM_', 'NR_']):
-        # Use the direct versioned transcript endpoint
-        url = f"{TARK_API_BASE}/transcript/stable_id_with_version/?stable_id_with_version={identifier}"
-        response = requests.get(url)
-        if response.ok:
-            data = response.json()
-            # Versioned endpoint returns a single transcript, but keep the list format
-            # for consistency with the rest of the code
-            return [data] if data else []
-    
-    # For non-versioned identifiers, use the existing endpoint
-    url = f"{TARK_API_BASE}/transcript/stable_id/{identifier}/"
-    response = requests.get(url)
-    if response.ok:
-        return response.json()
-    return []

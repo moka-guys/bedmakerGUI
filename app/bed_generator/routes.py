@@ -565,17 +565,6 @@ def adjust_utrs():
             'error': str(e)
         }), 500
 
-def get_mane_plus_clinical_identifiers(results):
-    """Helper function to identify MANE Plus Clinical transcripts."""
-    mane_plus_clinical = set()
-    for result in results:
-        # Check both the mane_transcript_type field and any potential string variations
-        mane_type = result.get('mane_transcript_type', '')
-        if isinstance(mane_type, str) and ('PLUS CLINICAL' in mane_type.upper() or 
-            'MANE Plus Clinical' in mane_type):
-            mane_plus_clinical.add(result.get('gene', ''))
-    return mane_plus_clinical
-
 def process_bed_entry(
     entry: Dict,
     settings: Dict[str, bool],
