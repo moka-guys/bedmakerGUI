@@ -42,13 +42,16 @@ def create_auth_user():
                 # Get authorizer status
                 is_authorizer = input("Make this user an authorizer? (y/n): ").lower().strip() == 'y'
                 
-                # Get role
+                # Get role (now optional)
                 valid_roles = ['Bioinformatics', 'Cancer Team', 'Rare Disease Team']
                 while True:
-                    role = input(f"Enter role ({'/'.join(valid_roles)}): ").strip()
+                    role = input(f"Enter role ({'/'.join(valid_roles)}) or press Enter to skip: ").strip()
+                    if not role:  # Allow empty input
+                        role = None
+                        break
                     if role in valid_roles:
                         break
-                    print(f"Invalid role. Please choose from: {', '.join(valid_roles)}")
+                    print(f"Invalid role. Please choose from: {', '.join(valid_roles)} or press Enter to skip")
 
                 # Create new user
                 new_user = User(
