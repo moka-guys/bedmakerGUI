@@ -1063,3 +1063,99 @@ h1, h2, h3, h4, h5, h6 {
     margin-right: 0.5rem;
     vertical-align: middle;
 }
+
+.card-header[data-bs-toggle="collapse"]:hover {
+    background-color: #e9ecef !important;
+}
+
+.card-header[data-bs-toggle="collapse"] {
+    transition: background-color 0.2s;
+}
+
+#retiredFilesContent {
+    transition: all 0.3s ease-in-out;
+}
+
+/* Base table styles */
+.table {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.9rem;
+    color: #374151;
+    background: #ffffff;
+}
+
+.table thead th {
+    background: #f9fafb;
+    color: #4b5563;
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.table tbody td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f3f4f6;
+    vertical-align: middle;
+}
+
+.table tbody tr:hover {
+    background-color: #f9fafb;
+}
+
+/* Table container for scrolling */
+.table-container {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #ffffff;
+}
+
+/* Action buttons within tables */
+.table .action-buttons {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.table .btn-sm {
+    padding: 4px 8px;
+    font-size: 0.8rem;
+    height: 28px;
+    min-width: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.table .btn-sm i {
+    font-size: 0.9rem;
+}
+
+/* Subtle button colors in tables */
+.table .btn-success { 
+    background-color: rgba(25, 135, 84, 0.9); 
+}
+.table .btn-info { 
+    background-color: rgba(13, 202, 240, 0.9); 
+}
+.table .btn-primary { 
+    background-color: rgba(13, 110, 253, 0.9); 
+}
+.table .btn-danger { 
+    background-color: rgba(220, 53, 69, 0.9); 
+}
+
+/* Hover states */
+.table .btn-success:hover { background-color: #157347; }
+.table .btn-info:hover { background-color: #0bb2d4; }
+.table .btn-primary:hover { background-color: #0b5ed7; }
+.table .btn-danger:hover { background-color: #bb2d3b; }

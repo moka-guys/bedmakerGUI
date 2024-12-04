@@ -29,7 +29,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for bed_file in bed_files if bed_file.status != 'published' %}
+                    {% for bed_file in bed_files if bed_file.status not in ['published', 'retired'] %}
                         <tr>
                             <td>{{ bed_file.id }}</td>
                             <td>{{ bed_file.filename }}</td>
@@ -103,15 +103,67 @@
                                         <i class="bi bi-download"></i> Download
                                     </a>
                                 {% endif %}
+                                <button class="btn btn-info btn-sm view-details" data-file-id="{{ bed_file.id }}">View original query</button>
                                 {% if current_user.is_authorizer %}                                        
                                     <button class="btn btn-danger btn-sm remove-bed-file" data-file-id="{{ bed_file.id }}">Delete entry</button>
                                 {% endif %}
-                                <button class="btn btn-info btn-sm view-details" data-file-id="{{ bed_file.id }}">View original query</button>
                             </td>
                         </tr>
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- Retired BED files card -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header" style="background-color: #f8f9fa; cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#retiredFilesContent">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="bi bi-archive" style="padding-right: 5px;"></i>Retired BED Files
+                </div>
+                <i class="bi bi-chevron-down"></i>
+            </div>
+        </div>
+        <div id="retiredFilesContent" class="collapse">
+            <div class="table-container">
+                <table class="table table-bordered table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>File Name</th>
+                            <th>Submitter</th>
+                            <th>Authoriser</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bed_file in bed_files if bed_file.status == 'retired' %}
+                            <tr>
+                                <td>{{ bed_file.id }}</td>
+                                <td>{{ bed_file.filename }}</td>
+                                <td>{{ bed_file.submitter.username }}</td>
+                                <td>{{ bed_file.authorizer.username }}</td>
+                                <td>
+                                    <span class="badge rounded-pill bg-{{ bed_file.status|lower }}">
+                                        {{ bed_file.status }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if bed_file.file_blob %}
+                                        <a href="{{ url_for('bed_manager.download_bed_file', file_id=bed_file.id) }}" 
+                                           class="btn btn-success btn-sm">
+                                            <i class="bi bi-download"></i> Download
+                                        </a>
+                                    {% endif %}
+                                    <button class="btn btn-info btn-sm view-details" data-file-id="{{ bed_file.id }}">View original query</button>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -384,6 +436,14 @@
                     `${entry.chromosome}\t${entry.start}\t${entry.end}\t${entry.gene}`
                 ).join('<br>');
             }
+
+            // Add rotation animation for the chevron icon
+            document.querySelector('[data-bs-toggle="collapse"]').addEventListener('click', function() {
+                const chevron = this.querySelector('.bi-chevron-down');
+                chevron.style.transition = 'transform 0.3s';
+                chevron.style.transform = this.getAttribute('aria-expanded') === 'true' ? 
+                    'rotate(0deg)' : 'rotate(180deg)';
+            });
         });
 
             // Use event delegation for "View Details" buttons
