@@ -338,74 +338,6 @@ function downloadFile(content, filename) {
     document.body.removeChild(a);
 }
 
-function downloadBedFile(bedType, data) {
-    fetch(`/bed_generator/download_bed/${bedType}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.error) {
-            alert('Error: ' + data.error);
-        } else {
-            const blob = new Blob([data.content], { type: 'text/plain' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            a.download = data.filename;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('An unexpected error occurred.');
-    });
-}
-
-function downloadBEDSet() {
-    const results = JSON.parse(document.getElementById('bedContent').value);
-    fetch('/bed_generator/download_bed_set', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ results: results }),
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-    })
-    .then(data => {
-        if (data.error) {
-            throw new Error(data.error);
-        }
-        Object.entries(data).forEach(([filename, content]) => {
-            const blob = new Blob([content], { type: 'text/plain' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-        });
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('An error occurred while downloading the BED set: ' + error.message);
-    });
-}
-
 function showSubmitModal() {
     var submitModal = new bootstrap.Modal(document.getElementById('submitModal'));
     submitModal.show();
@@ -1099,12 +1031,6 @@ function showBedFlowDiagram() {
     // Show the modal
     const modal = new bootstrap.Modal(document.getElementById('bedFlowModal'));
     modal.show();
-}
-
-// Add this function to store the original results when they're first loaded
-function storeOriginalResults(results) {
-    // Store as a data attribute on the bedContent element
-    document.getElementById('bedContent').setAttribute('data-original-results', JSON.stringify(results));
 }
 
 function updateResults(results) {
