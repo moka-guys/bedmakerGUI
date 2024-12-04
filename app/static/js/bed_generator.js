@@ -294,9 +294,12 @@ function handleCsvFileUpload(event) {
 console.log('Script loaded');
 
 document.getElementById('bedGeneratorForm').addEventListener('submit', function(e) {
-    var button = document.getElementById('generateButton');
-    var spinner = document.getElementById('spinner');
+    const button = document.getElementById('generateButton');
+    const buttonText = document.getElementById('buttonText');
+    const buttonSpinner = document.getElementById('buttonSpinner');
     
-    button.style.display = 'none';
-    spinner.classList.remove('d-none');
+    // Disable button and show loading state
+    button.disabled = true;
+    buttonText.textContent = 'Generating...';
+    buttonSpinner.classList.remove('d-none');
 });

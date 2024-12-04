@@ -126,12 +126,10 @@
         </div>
 
         <center>
-            {{ form.submit(class="btn btn-primary", id="generateButton") }}
-            <div class="spinner-square d-none" id="spinner">
-                <div class="square-1 square"></div>
-                <div class="square-2 square"></div>
-                <div class="square-3 square"></div>
-            </div>
+            <button type="submit" class="btn btn-primary" id="generateButton">
+                <span id="buttonText">Generate BED File</span>
+                <span class="spinner-border spinner-border-sm ms-2 d-none" id="buttonSpinner" role="status"></span>
+            </button>
         </center>
     </form>
 

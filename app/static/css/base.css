@@ -139,14 +139,51 @@ body {
 }
 
 .btn-primary {
-    background: linear-gradient(45deg, #004a99, #0066cc);
-    border: none;
-    box-shadow: 0 2px 6px rgba(0, 74, 153, 0.2);
+    background: linear-gradient(45deg, #004a99, #0066cc) !important;
+    border: none !important;
+    box-shadow: 0 2px 6px rgba(0, 74, 153, 0.2) !important;
 }
 
-.btn-primary:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 74, 153, 0.3);
+.btn-secondary {
+    background: linear-gradient(45deg, #495057, #6c757d) !important;
+    border: none !important;
+    box-shadow: 0 2px 6px rgba(108, 117, 125, 0.2) !important;
+    color: #fff !important;
+}
+
+.btn-success {
+    background: linear-gradient(45deg, #198754, #28a745) !important;
+    border: none !important;
+    box-shadow: 0 2px 6px rgba(25, 135, 84, 0.2) !important;
+}
+
+.btn-danger {
+    background: linear-gradient(45deg, #dc3545, #e74c3c) !important;
+    border: none !important;
+    box-shadow: 0 2px 6px rgba(220, 53, 69, 0.2) !important;
+}
+
+.btn-info {
+    background: linear-gradient(45deg, #0dcaf0, #17a2b8) !important;
+    border: none !important;
+    box-shadow: 0 2px 6px rgba(13, 202, 240, 0.2) !important;
+    color: #fff !important;
+}
+
+.btn-primary:hover,
+.btn-secondary:hover,
+.btn-success:hover,
+.btn-danger:hover,
+.btn-info:hover {
+    filter: brightness(110%) !important;
+}
+
+.btn-primary:active,
+.btn-secondary:active,
+.btn-success:active,
+.btn-danger:active,
+.btn-info:active {
+    filter: brightness(90%) !important;
 }
 
 .form-control {
@@ -276,50 +313,6 @@ select.form-control {
 
 #generateButton.loading:hover {
     background: none;
-}
-
-.spinner-square {
-    gap: 8px;
-    padding: 12px;
-    background: rgba(255, 255, 255, 0.9);
-    border-radius: 12px;
-}
-
-.spinner-square > .square {
-    border-radius: 4px;
-}
-
-.square-1 {
-    animation: square-anim 1200ms cubic-bezier(0.445, 0.05, 0.55, 0.95) 0s infinite;
-}
-
-.square-2 {
-    animation: square-anim 1200ms cubic-bezier(0.445, 0.05, 0.55, 0.95) 200ms infinite;
-}
-
-.square-3 {
-    animation: square-anim 1200ms cubic-bezier(0.445, 0.05, 0.55, 0.95) 400ms infinite;
-}
-
-@keyframes square-anim {
-    0% {
-        height: 22px;
-        background-color: rgb(111, 163, 240);
-    }
-    20% {
-        height: 22px;
-    }
-    40% {
-        height: 33px;
-        background-color: rgb(111, 200, 240);
-    }
-    80% {
-        height: 22px;
-    }
-    100% {
-        height: 22px;
-        background-color: rgb(111, 163, 240);
-    }
 }
 
 .table-responsive {
@@ -1026,4 +1019,10 @@ h1, h2, h3, h4, h5, h6 {
     position: relative;
     display: inline-flex;
     vertical-align: middle;
+}
+
+/* Add this simple button loading state style */
+#generateButton:disabled {
+    cursor: not-allowed;
+    opacity: 0.75;
 }
