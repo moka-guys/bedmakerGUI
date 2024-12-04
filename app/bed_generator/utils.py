@@ -240,41 +240,6 @@ def get_panels_from_json() -> Tuple[List[Dict[str, Any]], str]:
     except Exception as e:
         current_app.logger.error(f"Error reading panels from JSON: {str(e)}")
         return [], ''
-    
-def store_genes_in_json(panel_id: int, genes_data: List[Dict[str, Any]]) -> None:
-    """
-    Stores gene data for a specific panel in a JSON file.
-
-    Args:
-        panel_id: The ID of the panel.
-        genes_data: A list of dictionaries containing gene information.
-    """
-    all_genes = get_genes_from_json()
-    all_genes[str(panel_id)] = genes_data
-    with open(GENES_JSON_PATH, 'w') as json_file:
-        json.dump(all_genes, json_file, indent=2)
-
-def get_genes_from_json() -> Dict[str, List[Dict[str, Any]]]:
-    """
-    Retrieves gene data from a JSON file.
-
-    Returns:
-        A dictionary mapping panel IDs to lists of gene information.
-    """
-    if not os.path.exists(GENES_JSON_PATH):
-        return {}
-    with open(GENES_JSON_PATH, 'r') as json_file:
-        return json.load(json_file)
-
-def fetch_and_store_genes_for_panel(panel_id: int) -> None:
-    """
-    Fetches genes for a specific panel and stores them in a JSON file.
-
-    Args:
-        panel_id: The ID of the panel.
-    """
-    genes = fetch_genes_for_panel(panel_id, include_amber=True, include_red=True)
-    store_genes_in_json(panel_id, genes)
 
 def collect_warnings(results: List[Dict]) -> Optional[str]:
     """
