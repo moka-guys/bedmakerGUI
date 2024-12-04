@@ -56,15 +56,15 @@
                             <td>
                                 {% if bed_file.file_blob %}
                                     <a href="{{ url_for('bed_manager.download_bed_file', file_id=bed_file.id) }}" 
-                                       class="btn btn-success btn-sm">
+                                       class="btn btn-success btn-sm btn-small">
                                         <i class="bi bi-download"></i> Download
                                     </a>
                                 {% endif %}
+                                <button class="btn btn-info btn-sm btn-small view-details" data-file-id="{{ bed_file.id }}">View original query</button>
                                 {% if current_user.is_authorizer %}
-                                    <button class="btn btn-primary btn-sm review-bed-file" data-file-id="{{ bed_file.id }}">Review</button>
-                                    <button class="btn btn-danger btn-sm remove-bed-file" data-file-id="{{ bed_file.id }}">Delete entry</button>
+                                    <button class="btn btn-primary btn-sm btn-small review-bed-file" data-file-id="{{ bed_file.id }}">Review</button>
+                                    <button class="btn btn-danger btn-sm btn-small remove-bed-file" data-file-id="{{ bed_file.id }}">Delete entry</button>
                                 {% endif %}
-                                <button class="btn btn-info btn-sm view-details" data-file-id="{{ bed_file.id }}">View original query</button>
                             </td>
                         </tr>
                     {% endfor %}
@@ -125,12 +125,24 @@
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body" id="bedFileModalBody" style="background-color: #fafafa;">
+                <div class="modal-body" id="bedFileModalBody" style="background-color: #fafafa; max-height: 70vh; overflow-y: auto;">
                     <!-- Content will be loaded here -->
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal" data-file-id="">Authorise and publish BED</button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <div class="d-flex w-100 justify-content-between align-items-center">
+                        <div class="flex-grow-1 me-3">
+                            <select class="form-select" id="fileAction" name="fileAction" onchange="showComparison()">
+                                <option value="new">Create new file</option>
+                                {% for file in published_files %}
+                                    <option value="{{ file.id }}">Increment version: {{ file.filename }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <button type="button" class="btn btn-primary" data-file-id="">Authorise and publish BED</button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -177,14 +189,26 @@
                     fetch('/bed_manager/bed_file_details/' + fileId)
                     .then(response => response.text())
                     .then(html => {
+                        // Insert the HTML into the modal body
                         document.getElementById('bedFileModalBody').innerHTML = html;
-                        document.querySelector('#bedFileModal .btn-primary').setAttribute('data-file-id', fileId);
                         
-                        // Add the fileAction event listener only after the modal content is loaded
-                        const fileActionSelect = document.getElementById('fileAction');
-                        if (fileActionSelect) {
-                            fileActionSelect.addEventListener('change', showComparison);
+                        // Get the original select element from the modal body
+                        const originalSelect = document.getElementById('fileAction');
+                        const modalFooterSelect = document.querySelector('#bedFileModal .modal-footer select');
+                        
+                        // Copy options from the original select to the footer select
+                        if (originalSelect && modalFooterSelect) {
+                            modalFooterSelect.innerHTML = originalSelect.innerHTML;
                         }
+                        
+                        // Remove the original select container
+                        const originalSelectContainer = document.querySelector('#bedFileModalBody .mt-3');
+                        if (originalSelectContainer) {
+                            originalSelectContainer.remove();
+                        }
+                        
+                        // Set the file ID for the authorize button
+                        document.querySelector('#bedFileModal .btn-primary').setAttribute('data-file-id', fileId);
                         
                         bedFileModal.show();
                     });
@@ -215,6 +239,12 @@
 
             // Update the "Authorise and publish BED" button click handler
             document.querySelector('#bedFileModal .btn-primary').addEventListener('click', function() {
+                // Get references to modal elements
+                const modal = bootstrap.Modal.getInstance(document.getElementById('bedFileModal'));
+                const authorizeBtn = this;
+                const closeBtn = document.querySelector('#bedFileModal .btn-secondary');
+                const modalContent = document.querySelector('#bedFileModal .modal-content');
+                
                 // Add warning acknowledgment check
                 if (document.getElementById('warningAcknowledged')) {
                     if (!document.getElementById('warningAcknowledged').checked) {
@@ -222,6 +252,12 @@
                         return;
                     }
                 }
+
+                // Disable buttons and add loading state
+                authorizeBtn.disabled = true;
+                closeBtn.disabled = true;
+                modalContent.style.opacity = '0.6';
+                authorizeBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
 
                 var fileId = this.getAttribute('data-file-id');
                 var fileAction = document.getElementById('fileAction').value;
@@ -239,6 +275,9 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
+                        // Close the modal
+                        modal.hide();
+                        
                         // Create and show the alert
                         var alert = document.createElement('div');
                         alert.className = 'alert alert-success alert-dismissible fade show';
@@ -254,11 +293,24 @@
                             location.reload();
                         }, 3000);
                     } else {
+                        // Re-enable buttons and remove loading state
+                        authorizeBtn.disabled = false;
+                        closeBtn.disabled = false;
+                        modalContent.style.opacity = '1';
+                        authorizeBtn.innerHTML = 'Authorise and publish BED';
+                        
                         alert('Failed to authorise and publish BED file: ' + data.error);
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
+                    
+                    // Re-enable buttons and remove loading state
+                    authorizeBtn.disabled = false;
+                    closeBtn.disabled = false;
+                    modalContent.style.opacity = '1';
+                    authorizeBtn.innerHTML = 'Authorise and publish BED';
+                    
                     alert('An error occurred while authorising the BED file.');
                 });
             });
@@ -536,13 +588,13 @@
                     title: 'UTR Settings',
                     content: `
                         <div class="d-flex gap-2">
-                            <div class="parameter-tag">
+                            <div class="parameter-tag ${queryData.settings?.include_5utr ? 'border border-2 border-success' : 'border border-2 border-danger'}">
                                 <span class="param-label">5' UTR:</span>
-                                <span class="param-value">${queryData.include_5utr ? 'Yes' : 'No'}</span>
+                                <span class="param-value">${queryData.settings?.include_5utr ? 'Yes' : 'No'}</span>
                             </div>
-                            <div class="parameter-tag">
+                            <div class="parameter-tag ${queryData.settings?.include_3utr ? 'border border-2 border-success' : 'border border-2 border-danger'}">
                                 <span class="param-label">3' UTR:</span>
-                                <span class="param-value">${queryData.include_3utr ? 'Yes' : 'No'}</span>
+                                <span class="param-value">${queryData.settings?.include_3utr ? 'Yes' : 'No'}</span>
                             </div>
                         </div>
                     `

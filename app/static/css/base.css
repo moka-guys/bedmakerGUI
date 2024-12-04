@@ -161,6 +161,7 @@ body {
     background: linear-gradient(45deg, #dc3545, #e74c3c) !important;
     border: none !important;
     box-shadow: 0 2px 6px rgba(220, 53, 69, 0.2) !important;
+    color: #fff !important;
 }
 
 .btn-info {
@@ -1025,4 +1026,40 @@ h1, h2, h3, h4, h5, h6 {
 #generateButton:disabled {
     cursor: not-allowed;
     opacity: 0.75;
+}
+
+/* Existing status styles */
+.bg-draft {
+    background-color: #6c757d;  /* grey */
+}
+
+.bg-pending {
+    background-color: #ffc107;  /* yellow/warning */
+}
+
+.bg-published {
+    background-color: #198754;  /* green/success */
+}
+
+/* New style for retired status */
+.bg-retired {
+    background-color: #dc3545;  /* red/danger */
+}
+
+/* Optional: Add a slightly different style for the entire row of retired files */
+.table tbody tr.retired-row {
+    background-color: #fff5f5;  /* light red background */
+}
+
+.table tbody tr.retired-row:hover {
+    background-color: #ffe5e5;  /* slightly darker on hover */
+}
+
+.modal-content {
+    transition: opacity 0.2s ease-in-out;
+}
+
+.spinner-border-sm {
+    margin-right: 0.5rem;
+    vertical-align: middle;
 }

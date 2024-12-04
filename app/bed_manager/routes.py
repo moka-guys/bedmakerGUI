@@ -49,11 +49,19 @@ def remove_bed_file(file_id):
 @login_required
 def bed_file_details(file_id):
     bed_file = BedFile.query.options(db.joinedload(BedFile.entries)).get_or_404(file_id)
-    published_files = BedFile.query.filter_by(status='published').all()
+    
+    # Extract the base filename without the version suffix
+    base_filename = re.sub(r'_v\d+$', '', bed_file.filename)
+    
+    # Filter published files to only include those with matching base filenames
+    published_files = BedFile.query.filter(
+        BedFile.status == 'published',
+        BedFile.filename.like(f"{base_filename}_v%")
+    ).all()
     
     # Find the previous version of the file
     previous_version = None
-    if bed_file.status == 'pending':
+    if bed_file.status == 'draft':
         match = re.search(r'_v(\d+)$', bed_file.filename)
         if match:
             current_version = int(match.group(1))
@@ -97,51 +105,27 @@ def authorise_bed_file(file_id):
             bed_file.authorizer_id = current_user.id
             message = f'The new BED file "{bed_file.filename}" was successfully published and is now available for analysis.'
         else:
-            # Increment version of an existing file
+            # Get the existing published file
             existing_file = BedFile.query.get(int(file_action))
             if not existing_file:
                 return jsonify({'success': False, 'error': 'Selected file for increment not found.'}), 404
 
+            # Change status of existing published file to 'retired'
+            existing_file.status = 'retired'
+
+            # Update the version number in the filename
             match = re.search(r'_v(\d+)$', existing_file.filename)
             if match:
                 current_version = int(match.group(1))
-                new_filename = re.sub(r'_v\d+$', f'_v{current_version + 1}', existing_file.filename)
+                bed_file.filename = re.sub(r'_v\d+$', f'_v{current_version + 1}', existing_file.filename)
             else:
-                new_filename = f"{existing_file.filename}_v2"
+                bed_file.filename = f"{existing_file.filename}_v2"
 
-            new_file = BedFile(
-                filename=new_filename,
-                status='published',
-                submitter_id=bed_file.submitter_id,
-                authorizer_id=current_user.id,
-                initial_query=bed_file.initial_query,
-                assembly=bed_file.assembly
-            )
-            db.session.add(new_file)
-            db.session.flush()  # This will assign an ID to new_file
-
-            # Copy entries from the pending file to the new file
-            for entry in bed_file.entries:
-                new_entry = BedEntry(
-                    bed_file_id=new_file.id,
-                    chromosome=entry.chromosome,
-                    start=entry.start,
-                    end=entry.end,
-                    entrez_id=entry.entrez_id,
-                    gene=entry.gene,
-                    accession=entry.accession,
-                    exon_id=entry.exon_id,
-                    exon_number=entry.exon_number,
-                    transcript_biotype=entry.transcript_biotype,
-                    mane_transcript=entry.mane_transcript,
-                    status=entry.status
-                )
-                db.session.add(new_entry)
-
-            # Set the original pending file to 'draft' status
-            bed_file.status = 'draft'
-
-            message = f'A new version of the BED file ({new_filename}) was created and published.'
+            # Update the pending file to published status
+            bed_file.status = 'published'
+            bed_file.authorizer_id = current_user.id
+            
+            message = f'Version incremented: {bed_file.filename} is now published. Previous version marked as retired.'
 
         db.session.commit()
         return jsonify({'success': True, 'message': message})
