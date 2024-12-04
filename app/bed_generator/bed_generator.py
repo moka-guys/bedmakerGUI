@@ -129,20 +129,6 @@ class BedGenerator:
         
         return '\n'.join(bed_lines)
 
-    @staticmethod
-    def create_raw_bed(results: List[Dict], add_chr_prefix: bool = False) -> str:
-        """
-        Creates raw BED file content without additional formatting.
-
-        Args:
-            results (List[Dict]): A list of dictionaries containing BED entry data.
-            add_chr_prefix (bool): Whether to add 'chr' prefix to chromosomes.
-
-        Returns:
-            str: The raw BED file content.
-        """
-        return '\n'.join([f"{'chr' if add_chr_prefix else ''}{r['loc_region']}\t{r['loc_start']}\t{r['loc_end']}\t{r['gene']}" for r in results])
-
 def generate_bed_files(filename: str, results: List[Dict], settings: Dict) -> None:
     """
     Generates different BED file formats and stores them both in the database and filesystem.

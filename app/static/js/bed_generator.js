@@ -2,7 +2,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('bedGeneratorForm');
     const generateButton = document.getElementById('generateButton');
     const buttonText = document.getElementById('buttonText');
-    const dnaLoader = document.getElementById('dnaLoader');
 
     loadPanelsFromJSON();
 

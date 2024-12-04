@@ -186,13 +186,6 @@ def results():
         settings=settings.to_dict()
     )
 
-@bed_generator_bp.route('/store_no_data', methods=['POST'])
-def store_no_data():
-    """Store no_data_identifiers in session."""
-    data = request.get_json()
-    session['no_data_identifiers'] = data.get('no_data_identifiers', [])
-    return jsonify({'success': True})
-
 @bed_generator_bp.route('/adjust_padding', methods=['POST'])
 def adjust_padding():
     """

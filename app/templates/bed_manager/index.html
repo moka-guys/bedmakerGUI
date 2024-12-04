@@ -444,7 +444,6 @@
                 chevron.style.transform = this.getAttribute('aria-expanded') === 'true' ? 
                     'rotate(0deg)' : 'rotate(180deg)';
             });
-        });
 
             // Use event delegation for "View Details" buttons
             document.body.addEventListener('click', function(e) {
@@ -499,68 +498,7 @@
                         });
                 }
             });
-
-        function reloadBedResults(fileId) {
-            fetch(`/bed_manager/reload_bed_results/${fileId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        window.location.href = data.redirect_url;
-                    } else {
-                        alert('Failed to reload BED results: ' + data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('An error occurred while reloading the BED results.');
-                });
-        }
-
-        function showComparison() {
-            var fileAction = document.getElementById('fileAction');
-            var comparisonView = document.getElementById('comparisonView');
-            var publishedFileContent = document.getElementById('existingFileContent');
-            var newFileContent = document.getElementById('newFileContent');
-            var existingFileHeader = document.getElementById('existingFileHeader');
-            var newFileHeader = document.getElementById('newFileHeader');
-
-            var fileId = document.querySelector('#bedFileModal .btn-primary').getAttribute('data-file-id');
-            var selectedFileId = fileAction.value;
-            
-            fetch(`/bed_manager/compare_bed_files/${fileId}?selected_file_id=${selectedFileId}`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    newFileContent.innerHTML = formatBedContent(data.new_file);
-                    publishedFileContent.innerHTML = data.message ? 
-                        `<p>${data.message}</p>` : 
-                        formatBedContent(data.published_file);
-                    comparisonView.style.display = 'block';
-                    
-                    // Update headers with file names
-                    newFileHeader.textContent = data.new_file_name || 'New Version';
-                    existingFileHeader.textContent = data.published_file_name || 'Published Version';
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('An error occurred while comparing BED files: ' + error.message);
-                    comparisonView.style.display = 'none';
-                });
-        }
-
-        function formatBedContent(content) {
-            if (!Array.isArray(content)) {
-                console.error('Expected an array, but got:', content);
-                return 'Error: Invalid data format';
-            }
-            return content.map(entry => 
-                `${entry.chromosome}\t${entry.start}\t${entry.end}\t${entry.gene}`
-            ).join('<br>');
-        }
+        });
 
         function formatQueryWorkflow(queryData) {
             // Store the query data on the buttons

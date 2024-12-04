@@ -545,28 +545,6 @@ def process_coordinate_data(data: List[Dict], chrom: str, start: int, end: int, 
             'alert': f"No genes found overlapping coordinate {coord}."
         }]
 
-def fetch_panels_from_panelapp():
-    """
-    Fetches panel data from PanelApp API, handling pagination.
-    """
-    panels_list = []
-    next_url = "https://panelapp.genomicsengland.co.uk/api/v1/panels/signedoff/"
-    
-    while next_url:
-        try:
-            response = requests.get(next_url)
-            response.raise_for_status()
-            data = response.json()
-            
-            panels_list.extend(data['results'])
-            next_url = data.get('next')
-            
-        except requests.RequestException as e:
-            current_app.logger.error(f"Error fetching panels from PanelApp: {str(e)}")
-            break
-    
-    return panels_list
-
 def fetch_genes_for_panel(panel_id: int, include_amber: bool, include_red: bool) -> List[Dict]:
     """
     Fetches genes associated with a specific panel from PanelApp.
