@@ -7,7 +7,7 @@ Routes:
 - create_user(): Handles the creation of new users.
 - login(): Manages user login.
 - logout(): Handles user logout.
-- settings(): Displays and updates application settings.
+- register(): Handles user registration.
 """
 
 from flask import render_template, redirect, url_for, flash, request
@@ -21,6 +21,15 @@ from app.auth.forms import LoginForm, RegistrationForm
 @auth_bp.route('/set_authorizer/<int:user_id>', methods=['POST'])
 @login_required
 def set_authorizer(user_id):
+    """
+    Sets or removes the authorizer status for a user.
+
+    Args:
+        user_id (int): The ID of the user to update.
+
+    Returns:
+        Redirects to the user management page.
+    """
     if not current_user.is_authorizer:
         flash('You do not have permission to perform this action.', 'error')
         return redirect(url_for('auth.user_management'))
@@ -38,6 +47,12 @@ def set_authorizer(user_id):
 @auth_bp.route('/user_management')
 @login_required
 def user_management():
+    """
+    Displays the user management page for authorizers.
+
+    Returns:
+        Renders the user management template with a list of users.
+    """
     if not current_user.is_authorizer:
         flash('You do not have permission to access this page.', 'error')
         return redirect(url_for('bed_manager.index'))
@@ -48,6 +63,12 @@ def user_management():
 @auth_bp.route('/create_user', methods=['POST'])
 @login_required
 def create_user():
+    """
+    Handles the creation of new users.
+
+    Returns:
+        Redirects to the user management page.
+    """
     if not current_user.is_authorizer:
         flash('You do not have permission to create users.', 'error')
         return redirect(url_for('auth.user_management'))
@@ -77,6 +98,12 @@ def create_user():
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
+    """
+    Manages user login.
+
+    Returns:
+        Renders the login template or redirects to the next page.
+    """
     if current_user.is_authenticated:
         return redirect(url_for('bed_generator.index'))
     form = LoginForm()
@@ -94,11 +121,23 @@ def login():
 
 @auth_bp.route('/logout')
 def logout():
+    """
+    Handles user logout.
+
+    Returns:
+        Redirects to the index page.
+    """
     logout_user()
     return redirect(url_for('bed_generator.index'))
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
+    """
+    Handles user registration.
+
+    Returns:
+        Renders the registration template or redirects to the login page.
+    """
     if current_user.is_authenticated:
         return redirect(url_for('bed_generator.index'))
     form = RegistrationForm()
