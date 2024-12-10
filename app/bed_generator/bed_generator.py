@@ -1,14 +1,15 @@
 """
 bed_generator.py - Provides functions to format individual BED lines and create content for different use cases.
 
+Classes:
+- BedGenerator: Main class for generating BED file content with different formats.
+    Methods:
+    - format_bed_line: Formats a single BED line based on the specified format type.
+    - create_bed: Creates BED file content from a list of results in a specified format.
+    - create_formatted_bed: Creates formatted BED file content in any supported format.
+
 Functions:
-- format_bed_line: Formats a single BED line based on the specified format type.
-- create_bed: Creates BED file content from a list of results in a specified format.
-- create_data_bed: Creates BED file content in the 'data' format.
-- create_sambamba_bed: Creates BED file content in the 'sambamba' format.
-- create_exome_depth_bed: Creates BED file content in the 'exome_depth' format.
-- create_cnv_bed: Creates BED file content in the 'cnv' format.
-- create_raw_bed: Creates raw BED file content without additional formatting.
+- generate_bed_files: Generates different BED file formats and stores them in database and filesystem.
 """
 
 from typing import List, Dict, Union

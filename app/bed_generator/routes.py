@@ -6,17 +6,19 @@ Routes:
 - bulk_process(): Processes bulk genetic data submitted via a POST request.
 - results(): Displays the results of processed genetic data.
 - adjust_padding(): Adjusts padding for results based on user input.
+- adjust_utrs(): Adjusts UTRs for results based on user input.
 - panels(): Returns the list of panels as a JSON response.
 - refresh_panels(): Fetches and updates the panel data from an external source.
 - get_genes_by_panel(panel_id): Retrieves genes associated with a specific panel.
 - settings(): Displays and updates application settings.
 - submit_for_review(): Submits a BED file for review.
-- download_bed(bed_type): Generates and returns a specific type of BED file.
-- get_published_bed_files(): Retrieves a list of published BED files.
-- get_bed_files(): Retrieves a list of all BED files with their details.
-- adjust_utrs(): Adjusts UTRs for results based on user input.
 - download_raw_bed(): Generates and returns a raw BED file.
 - download_custom_bed(bed_type): Generates and returns a custom BED file.
+- get_published_bed_files(): Retrieves a list of published BED files.
+- get_bed_files(): Retrieves a list of all BED files with their details.
+
+Functions:
+- fetch_panels_from_panelapp(): Fetches panel data from PanelApp API, handling pagination.
 """
 
 from flask import render_template, request, jsonify, session, current_app, redirect, url_for, flash

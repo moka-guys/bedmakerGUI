@@ -1,12 +1,13 @@
 """
-logic.py Core logic for processing genetic data in the bed generator application for processing data.
+logic.py - Core logic for processing data in the bed generator application.
 
 Functions:
 - process_form_data(form): Processes form data to extract and process genetic identifiers and coordinates.
 - store_results_in_session(results, no_data_identifiers, assembly, initial_query): Stores processed results in the session.
 - process_bulk_data(data): Processes bulk genetic data from a dictionary input.
 - get_mane_plus_clinical_identifiers(results): Retrieves identifiers marked as 'MANE PLUS CLINICAL' from results.
-- generate_bed_file(bed_type, results, filename_prefix, settings, add_chr_prefix=False): Generates a BED file of a specified type using processed results and settings.
+- generate_bed_file(bed_type, results, filename_prefix, settings, add_chr_prefix): Generates a BED file of a specified type.
+- sort_results(results): Sorts results by chromosome (numerically and alphabetically) and start position.
 """
 
 from app import db

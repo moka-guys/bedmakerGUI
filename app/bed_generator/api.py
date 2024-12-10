@@ -2,13 +2,18 @@
 api.py - Fetches and processes variant information from Ensembl, TARK, and PanelApp APIs.
 
 Functions:
+- get_ensembl_url: Returns the appropriate Ensembl API URL based on the given assembly version.
 - fetch_variant_info: Retrieves variant information from the Ensembl API using a given rsID and assembly.
 - fetch_data_from_tark: Fetches transcript data from the TARK API based on an identifier and assembly.
 - fetch_data_from_tark_with_hg38: Retrieves GRCh37 transcript data using a GRCh38 identifier.
 - fetch_coordinate_info: Obtains gene overlap information for a given genomic coordinate.
-- fetch_panels_from_panelapp: Retrieves signed-off gene panels from the PanelApp API.
+- process_coordinate_data: Processes coordinate data to extract relevant gene overlap information.
 - fetch_genes_for_panel: Fetches genes associated with a specific panel from PanelApp, filtered by confidence level.
 - validate_coordinates: Validates the format of genomic coordinates from frontend.
+- select_transcripts: Selects the most relevant transcripts based on assembly and version.
+- process_transcripts: Processes transcript data and returns formatted results.
+- process_grch38_mane_select: Helper function to process GRCh38 MANE SELECT transcripts.
+- process_base_accession: Helper function to process base accession transcripts.
 """
 
 import requests

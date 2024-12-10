@@ -2,8 +2,8 @@
 database.py - Provides functions to store BED files and their entries in the database.
 
 Functions:
-- store_bed_file: Stores a BED file and its entries in the database.
-- create_bed_file: Creates a new BED file record in the database.
+- store_bed_file: Stores a BED file and its entries in the database, including UTR settings.
+- create_bed_file: Creates a new BED file record in the database with optional warning information.
 """
 
 from app import db

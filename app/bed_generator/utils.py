@@ -4,14 +4,13 @@ utils.py - Provides utility functions for processing data.
 Functions:
 - load_settings: Loads settings from a JSON file.
 - process_identifiers: Processes a list of genetic identifiers, fetching data and applying UTR and padding adjustments.
-- process_single_identifier: Processes a single genetic identifier, fetching data based on its type.
 - process_tark_data: Processes a single TARK data entry, adjusting for UTRs and padding.
 - process_coordinates: Processes a list of genomic coordinates, fetching overlapping gene information.
 - store_panels_in_json: Stores panel data in a JSON file, formatting the panel names.
 - get_panels_from_json: Retrieves panel data from a JSON file.
-- store_genes_in_json: Stores gene data for a specific panel in a JSON file.
-- get_genes_from_json: Retrieves gene data from a JSON file.
-- fetch_and_store_genes_for_panel: Fetches genes for a specific panel and stores them in a JSON file.
+- collect_warnings: Collects and formats warnings from results.
+- increment_version_number: Creates a new version number for an existing BED file.
+- standardize_result: Standardizes result structure across all entry types.
 """
 
 import re
