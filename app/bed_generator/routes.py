@@ -583,9 +583,15 @@ def process_bed_entry(
     # Handle SNPs
     if entry.get('is_snp', False) or entry.get('rsid'):
         if snp_padding:
-            center = int(entry['loc_start'])
-            result['loc_start'] = center - snp_padding
-            result['loc_end'] = center + snp_padding
+            # For multi-bp SNPs, apply padding to start and end directly
+            if entry['loc_start'] != entry['loc_end']:
+                result['loc_start'] = int(entry['loc_start']) - snp_padding
+                result['loc_end'] = int(entry['loc_end']) + snp_padding
+            else:
+                # For single-bp SNPs, calculate from center point
+                center = int(entry['loc_start'])
+                result['loc_start'] = center - snp_padding
+                result['loc_end'] = center + snp_padding
         return result
     
     strand = entry.get('strand', 1)
