@@ -588,7 +588,7 @@ def process_bed_entry(
                 result['loc_start'] = int(entry['loc_start']) - snp_padding
                 result['loc_end'] = int(entry['loc_end']) + snp_padding
             else:
-                # For single-bp SNPs, calculate from center point
+                # For single-bp SNPs, calculate from center point (first base)
                 center = int(entry['loc_start'])
                 result['loc_start'] = center - snp_padding
                 result['loc_end'] = center + snp_padding
