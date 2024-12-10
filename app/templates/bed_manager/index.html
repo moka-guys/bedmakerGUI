@@ -1,0 +1,820 @@
+{% extends 'base.html' %}
+
+{% block title %}BED Manager{% endblock %}
+
+{% block content %}
+    <!-- Page Title Card -->
+    <div class="card shadow-sm mb-4" style="background-color: #f8f9fa;">
+        <div class="card-body text-center" style="background-color: #fafafa;">
+            <h4 class="my-1 page-title">Manage BED Files</h4>
+        </div>
+    </div>
+    
+    <!-- Draft BED files card -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header" style="background-color: #f8f9fa;">
+            <i class="bi bi-file-earmark-text" style="padding-right: 5px;"></i>Pending BED Files
+        </div>
+        <div class="table-container">
+            <table class="table table-bordered table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>File Name</th>
+                        <th>Submitter</th>
+                        <th>5' UTR</th>
+                        <th>3' UTR</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for bed_file in bed_files if bed_file.status not in ['published', 'retired'] %}
+                        <tr>
+                            <td>{{ bed_file.id }}</td>
+                            <td>{{ bed_file.filename }}</td>
+                            <td>{{ bed_file.submitter.username }}</td>
+                            <td class="text-center">
+                                {% if bed_file.include_5utr %}
+                                    <i class="bi bi-check-circle-fill text-success" title="5' UTR included"></i>
+                                {% else %}
+                                    <i class="bi bi-x-circle-fill text-muted" title="5' UTR not included"></i>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if bed_file.include_3utr %}
+                                    <i class="bi bi-check-circle-fill text-success" title="3' UTR included"></i>
+                                {% else %}
+                                    <i class="bi bi-x-circle-fill text-muted" title="3' UTR not included"></i>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge rounded-pill bg-{{ bed_file.status|lower }}">
+                                    {{ bed_file.status }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if bed_file.file_blob %}
+                                    <a href="{{ url_for('bed_manager.download_bed_file', file_id=bed_file.id) }}" 
+                                       class="btn btn-success btn-sm btn-small">
+                                        <i class="bi bi-download"></i> Download
+                                    </a>
+                                {% endif %}
+                                <button class="btn btn-info btn-sm btn-small view-details" data-file-id="{{ bed_file.id }}">View original query</button>
+                                {% if current_user.is_authorizer %}
+                                    <button class="btn btn-primary btn-sm btn-small review-bed-file" data-file-id="{{ bed_file.id }}">Review</button>
+                                    <button class="btn btn-danger btn-sm btn-small remove-bed-file" data-file-id="{{ bed_file.id }}">Delete entry</button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Published BED files card -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header" style="background-color: #b9fbd8;">
+            <i class="bi bi-check-circle" style="padding-right: 5px;"></i>Live BED Files
+        </div>
+        <div class="table-container">
+            <table class="table table-bordered table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>File Name</th>
+                        <th>Submitter</th>
+                        <th>Authoriser</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for bed_file in bed_files if bed_file.status == 'published' %}
+                        <tr>
+                            <td>{{ bed_file.id }}</td>
+                            <td>{{ bed_file.filename }}</td>
+                            <td>{{ bed_file.submitter.username }}</td>
+                            <td>{{ bed_file.authorizer.username }}</td>
+                            <td>
+                                {% if bed_file.file_blob %}
+                                    <a href="{{ url_for('bed_manager.download_bed_file', file_id=bed_file.id) }}" 
+                                       class="btn btn-success btn-sm">
+                                        <i class="bi bi-download"></i> Download
+                                    </a>
+                                {% endif %}
+                                <button class="btn btn-info btn-sm view-details" data-file-id="{{ bed_file.id }}">View original query</button>
+                                {% if current_user.is_authorizer %}                                        
+                                    <button class="btn btn-danger btn-sm remove-bed-file" data-file-id="{{ bed_file.id }}">Delete entry</button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Retired BED files card -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header" style="background-color: #f8f9fa; cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#retiredFilesContent">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="bi bi-archive" style="padding-right: 5px;"></i>Retired BED Files
+                </div>
+                <i class="bi bi-chevron-down"></i>
+            </div>
+        </div>
+        <div id="retiredFilesContent" class="collapse">
+            <div class="table-container">
+                <table class="table table-bordered table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>File Name</th>
+                            <th>Submitter</th>
+                            <th>Authoriser</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bed_file in bed_files if bed_file.status == 'retired' %}
+                            <tr>
+                                <td>{{ bed_file.id }}</td>
+                                <td>{{ bed_file.filename }}</td>
+                                <td>{{ bed_file.submitter.username }}</td>
+                                <td>{{ bed_file.authorizer.username }}</td>
+                                <td>
+                                    <span class="badge rounded-pill bg-{{ bed_file.status|lower }}">
+                                        {{ bed_file.status }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if bed_file.file_blob %}
+                                        <a href="{{ url_for('bed_manager.download_bed_file', file_id=bed_file.id) }}" 
+                                           class="btn btn-success btn-sm">
+                                            <i class="bi bi-download"></i> Download
+                                        </a>
+                                    {% endif %}
+                                    <button class="btn btn-info btn-sm view-details" data-file-id="{{ bed_file.id }}">View original query</button>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for BED file details -->
+    <div class="modal fade" id="bedFileModal">
+        <div class="modal-dialog" style="max-width: 70vw;">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(45deg, #f8f9fa, #ffffff);">
+                    <h5 class="modal-title" style="color: #004a99; font-weight: 600; letter-spacing: 0.5px;">
+                        <i class="bi bi-file-text" style="padding-right: 5px;"></i>Original Query Details
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="bedFileModalBody" style="background-color: #fafafa; max-height: 70vh; overflow-y: auto;">
+                    <!-- Content will be loaded here -->
+                </div>
+                <div class="modal-footer">
+                    <div class="d-flex w-100 justify-content-between align-items-center">
+                        <div class="flex-grow-1 me-3">
+                            <select class="form-select" id="fileAction" name="fileAction" onchange="showComparison()">
+                                <option value="new">Create new file</option>
+                                {% for file in published_files %}
+                                    <option value="{{ file.id }}">Increment version: {{ file.filename }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <button type="button" class="btn btn-primary" data-file-id="">Authorise and publish BED</button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Original query details modal -->
+    <div class="modal fade" id="detailsModal" tabindex="-1" aria-labelledby="detailsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="detailsModalLabel">BED File Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="query-workflow" id="queryWorkflow">
+                        <!-- Content will be populated by JavaScript -->
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-start">
+                    <button class="btn btn-primary" onclick="reQueryData(this.getAttribute('data-query'))">
+                        <i class="bi bi-arrow-repeat"></i> Re-run Query
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="showRawQuery(this.getAttribute('data-query'))">
+                        <i class="bi bi-code-slash"></i> View Raw Query
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var bedFileModal = new bootstrap.Modal(document.getElementById('bedFileModal'));
+            
+            // Review button click handler
+            document.querySelectorAll('.review-bed-file').forEach(function(button) {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    var fileId = this.getAttribute('data-file-id');
+                    fetch('/bed_manager/bed_file_details/' + fileId)
+                    .then(response => response.text())
+                    .then(html => {
+                        // Insert the HTML into the modal body
+                        document.getElementById('bedFileModalBody').innerHTML = html;
+                        
+                        // Get the original select element from the modal body
+                        const originalSelect = document.getElementById('fileAction');
+                        const modalFooterSelect = document.querySelector('#bedFileModal .modal-footer select');
+                        
+                        // Copy options from the original select to the footer select
+                        if (originalSelect && modalFooterSelect) {
+                            modalFooterSelect.innerHTML = originalSelect.innerHTML;
+                        }
+                        
+                        // Remove the original select container
+                        const originalSelectContainer = document.querySelector('#bedFileModalBody .mt-3');
+                        if (originalSelectContainer) {
+                            originalSelectContainer.remove();
+                        }
+                        
+                        // Set the file ID for the authorize button
+                        document.querySelector('#bedFileModal .btn-primary').setAttribute('data-file-id', fileId);
+                        
+                        bedFileModal.show();
+                    });
+                });
+            });
+
+            document.querySelectorAll('.remove-bed-file').forEach(function(button) {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    if (confirm('Are you sure you want to remove this BED file?')) {
+                        var fileId = this.getAttribute('data-file-id');
+                        fetch('/bed_manager/remove/' + fileId, { method: 'POST' })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    this.closest('tr').remove();
+                                } else {
+                                    alert('Failed to remove BED file: ' + data.error);
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                alert('An error occurred while removing the BED file.');
+                            });
+                    }
+                });
+            });
+
+            // Update the "Authorise and publish BED" button click handler
+            document.querySelector('#bedFileModal .btn-primary').addEventListener('click', function() {
+                // Get references to modal elements
+                const modal = bootstrap.Modal.getInstance(document.getElementById('bedFileModal'));
+                const authorizeBtn = this;
+                const closeBtn = document.querySelector('#bedFileModal .btn-secondary');
+                const modalContent = document.querySelector('#bedFileModal .modal-content');
+                
+                // Add warning acknowledgment check
+                if (document.getElementById('warningAcknowledged')) {
+                    if (!document.getElementById('warningAcknowledged').checked) {
+                        alert('Please acknowledge the warnings before authorising this file.');
+                        return;
+                    }
+                }
+
+                // Disable buttons and add loading state
+                authorizeBtn.disabled = true;
+                closeBtn.disabled = true;
+                modalContent.style.opacity = '0.6';
+                authorizeBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+
+                var fileId = this.getAttribute('data-file-id');
+                var fileAction = document.getElementById('fileAction').value;
+                
+                fetch(`/bed_manager/authorise/${fileId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        fileAction: fileAction,
+                        warningsAcknowledged: true
+                    }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Close the modal
+                        modal.hide();
+                        
+                        // Create and show the alert
+                        var alert = document.createElement('div');
+                        alert.className = 'alert alert-success alert-dismissible fade show';
+                        alert.role = 'alert';
+                        alert.innerHTML = `
+                            <strong>Success!</strong> ${data.message}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        `;
+                        document.querySelector('.container').insertBefore(alert, document.querySelector('.container').firstChild);
+
+                        // Reload the page after a short delay
+                        setTimeout(() => {
+                            location.reload();
+                        }, 3000);
+                    } else {
+                        // Re-enable buttons and remove loading state
+                        authorizeBtn.disabled = false;
+                        closeBtn.disabled = false;
+                        modalContent.style.opacity = '1';
+                        authorizeBtn.innerHTML = 'Authorise and publish BED';
+                        
+                        alert('Failed to authorise and publish BED file: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    
+                    // Re-enable buttons and remove loading state
+                    authorizeBtn.disabled = false;
+                    closeBtn.disabled = false;
+                    modalContent.style.opacity = '1';
+                    authorizeBtn.innerHTML = 'Authorise and publish BED';
+                    
+                    alert('An error occurred while authorising the BED file.');
+                });
+            });
+
+            function reloadBedResults(fileId) {
+                fetch(`/bed_manager/reload_bed_results/${fileId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Store any warnings in localStorage before redirecting
+                            const warningSection = document.getElementById('warningSection');
+                            if (warningSection && warningSection.style.display !== 'none') {
+                                const warningContent = document.getElementById('warningContent').innerHTML;
+                                localStorage.setItem('bedWarnings', warningContent);
+                            } else {
+                                localStorage.removeItem('bedWarnings');
+                            }
+                            window.location.href = data.redirect_url;
+                        } else {
+                            alert('Failed to reload BED results: ' + data.error);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred while reloading the BED results.');
+                    });
+            }
+
+            function showComparison() {
+                var fileAction = document.getElementById('fileAction');
+                var comparisonView = document.getElementById('comparisonView');
+                var publishedFileContent = document.getElementById('existingFileContent');
+                var newFileContent = document.getElementById('newFileContent');
+                var existingFileHeader = document.getElementById('existingFileHeader');
+                var newFileHeader = document.getElementById('newFileHeader');
+
+                var fileId = document.querySelector('#bedFileModal .btn-primary').getAttribute('data-file-id');
+                var selectedFileId = fileAction.value;
+                
+                fetch(`/bed_manager/compare_bed_files/${fileId}?selected_file_id=${selectedFileId}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        newFileContent.innerHTML = formatBedContent(data.new_file);
+                        publishedFileContent.innerHTML = data.message ? 
+                            `<p>${data.message}</p>` : 
+                            formatBedContent(data.published_file);
+                        comparisonView.style.display = 'block';
+                        
+                        // Update headers with file names
+                        newFileHeader.textContent = data.new_file_name || 'New Version';
+                        existingFileHeader.textContent = data.published_file_name || 'Published Version';
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred while comparing BED files: ' + error.message);
+                        comparisonView.style.display = 'none';
+                    });
+            }
+
+            function formatBedContent(content) {
+                if (!Array.isArray(content)) {
+                    console.error('Expected an array, but got:', content);
+                    return 'Error: Invalid data format';
+                }
+                return content.map(entry => 
+                    `${entry.chromosome}\t${entry.start}\t${entry.end}\t${entry.gene}`
+                ).join('<br>');
+            }
+
+            // Add rotation animation for the chevron icon
+            document.querySelector('[data-bs-toggle="collapse"]').addEventListener('click', function() {
+                const chevron = this.querySelector('.bi-chevron-down');
+                chevron.style.transition = 'transform 0.3s';
+                chevron.style.transform = this.getAttribute('aria-expanded') === 'true' ? 
+                    'rotate(0deg)' : 'rotate(180deg)';
+            });
+
+            // Use event delegation for "View Details" buttons
+            document.body.addEventListener('click', function(e) {
+                if (e.target && e.target.classList.contains('view-details')) {
+                    e.preventDefault();
+                    var fileId = e.target.getAttribute('data-file-id');
+
+                    fetch('/bed_manager/file_details/' + fileId)
+                        .then(response => response.json())
+                        .then(data => {
+                            console.log('Received data:', data);
+                            
+                            // Format the workflow visualization
+                            const initialQuery = typeof data.initial_query === 'string' ? 
+                                JSON.parse(data.initial_query) : data.initial_query;
+                            
+                            // Get submitter from the table row
+                            const row = e.target.closest('tr');
+                            const submitterCell = row.querySelector('td:nth-child(3)');
+                            const submitter = submitterCell ? submitterCell.textContent.trim() : 'Not available';
+                            
+                            // Format dates
+                            const formatDate = (dateStr) => {
+                                if (!dateStr) return 'Not available';
+                                const date = new Date(dateStr);
+                                return date.toLocaleString('en-GB', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                });
+                            };
+                            
+                            // Combine file metadata with query data
+                            const combinedData = {
+                                ...initialQuery,
+                                created_date: formatDate(data.created_at),
+                                updated_date: formatDate(data.updated_at),
+                                submitter: submitter
+                            };
+                            
+                            document.getElementById('queryWorkflow').innerHTML = 
+                                formatQueryWorkflow(combinedData);
+                            
+                            var detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'));
+                            detailsModal.show();
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('An error occurred while fetching file details.');
+                        });
+                }
+            });
+        });
+
+        function formatQueryWorkflow(queryData) {
+            // Store the query data on the buttons
+            document.querySelector('#detailsModal .modal-footer .btn-primary')
+                .setAttribute('data-query', JSON.stringify(queryData));
+            document.querySelector('#detailsModal .modal-footer .btn-outline-secondary')
+                .setAttribute('data-query', JSON.stringify(queryData));
+            
+            // Define workflow steps with corrected padding access
+            const workflowSteps = [
+                {
+                    icon: 'bi-info-circle',
+                    title: 'File Information',
+                    content: `
+                        <div class="parameter-tag">
+                            <span class="param-label">Created:</span>
+                            <span class="param-value">${queryData.created_date || 'Not available'}</span>
+                        </div>
+                        <div class="parameter-tag">
+                            <span class="param-label">Last Updated:</span>
+                            <span class="param-value">${queryData.updated_date || 'Not available'}</span>
+                        </div>
+                        <div class="parameter-tag">
+                            <span class="param-label">Created By:</span>
+                            <span class="param-value">${queryData.submitter || 'Not available'}</span>
+                        </div>
+                    `
+                },
+                {
+                    icon: 'bi-diagram-3-fill',
+                    title: 'Assembly Selection',
+                    content: `
+                        <div class="parameter-tag">
+                            <span class="param-label">Assembly:</span>
+                            <span class="param-value">${queryData.assembly || 'Not available'}</span>
+                        </div>
+                    `
+                },
+                {
+                    icon: 'bi-input-cursor-text',
+                    title: 'Input Data',
+                    content: `
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-outline-primary btn-sm" onclick='showInputDetails("coordinates", ${JSON.stringify(JSON.stringify(queryData))})'>
+                                <i class="bi bi-geo-alt"></i> Coordinates
+                            </button>
+                            <button class="btn btn-outline-primary btn-sm" onclick='showInputDetails("transcripts", ${JSON.stringify(JSON.stringify(queryData))})'>
+                                <i class="bi bi-list-ol"></i> Identifiers
+                            </button>
+                        </div>
+                    `
+                },
+                {
+                    icon: 'bi-arrows-expand',
+                    title: 'Exon Padding',
+                    content: `
+                        <div class="parameter-tag">
+                            <span class="param-label">Padding:</span>
+                            <span class="param-value">${queryData.settings?.padding?.standard || '0'}bp</span>
+                        </div>
+                    `
+                },
+                {
+                    icon: 'bi-record-circle',
+                    title: 'SNP Settings',
+                    content: `
+                        <div class="parameter-tag">
+                            <span class="param-label">SNP Padding:</span>
+                            <span class="param-value">${queryData.settings?.padding?.snp || '0'}bp</span>
+                        </div>
+                        ${queryData.use_separate_snp_padding ? `
+                            <div class="parameter-tag">
+                                <span class="param-label">5' SNP Padding:</span>
+                                <span class="param-value">${queryData.snp_padding_5 || '0'}bp</span>
+                            </div>
+                            <div class="parameter-tag">
+                                <span class="param-label">3' SNP Padding:</span>
+                                <span class="param-value">${queryData.snp_padding_3 || '0'}bp</span>
+                            </div>
+                        ` : ''}
+                    `
+                },
+                {
+                    icon: 'bi-gear',
+                    title: 'UTR Settings',
+                    content: `
+                        <div class="d-flex gap-2">
+                            <div class="parameter-tag ${queryData.settings?.include_5utr ? 'border border-2 border-success' : 'border border-2 border-danger'}">
+                                <span class="param-label">5' UTR:</span>
+                                <span class="param-value">${queryData.settings?.include_5utr ? 'Yes' : 'No'}</span>
+                            </div>
+                            <div class="parameter-tag ${queryData.settings?.include_3utr ? 'border border-2 border-success' : 'border border-2 border-danger'}">
+                                <span class="param-label">3' UTR:</span>
+                                <span class="param-value">${queryData.settings?.include_3utr ? 'Yes' : 'No'}</span>
+                            </div>
+                        </div>
+                    `
+                }
+            ];
+
+            // Create the workflow steps HTML
+            const stepsHtml = workflowSteps.map(step => `
+                <div class="workflow-step">
+                    <div class="step-header">
+                        <i class="bi ${step.icon} step-icon"></i>
+                        <span class="step-title">${step.title}</span>
+                    </div>
+                    <div class="step-content">
+                        ${step.content}
+                    </div>
+                </div>
+            `).join('');
+
+            return stepsHtml;
+        }
+
+        function showRawQuery(queryDataStr) {
+            // Parse the stringified data back to an object
+            const queryData = JSON.parse(queryDataStr);
+            
+            // Create a modal for the raw query
+            const modalHtml = `
+                <div class="modal fade" id="rawQueryModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Raw Query Details</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <pre class="bg-light p-3 rounded"><code>${JSON.stringify(queryData, null, 2)}</code></pre>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Remove existing modal if it exists
+            const existingModal = document.getElementById('rawQueryModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+
+            // Add the modal to the document
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+            // Show the modal
+            const modal = new bootstrap.Modal(document.getElementById('rawQueryModal'));
+            modal.show();
+        }
+
+        function formatParameterTags(parameters) {
+            return Object.entries(parameters)
+                .map(([key, value]) => `
+                    <div class="parameter-tag">
+                        <span class="param-label">${formatKeyName(key)}:</span>
+                        <span class="param-value">${formatValue(value)}</span>
+                    </div>
+                `).join('');
+        }
+
+        function formatKeyName(key) {
+            return key.split('_').map(word => 
+                word.charAt(0).toUpperCase() + word.slice(1)
+            ).join(' ');
+        }
+
+        function formatValue(value) {
+            if (typeof value === 'boolean') {
+                return value ? 'Yes' : 'No';
+            }
+            if (typeof value === 'number') {
+                return value.toString();
+            }
+            return value;
+        }
+
+        // Add this function to handle showing the data modal
+        function showDataModal(title, content) {
+            // Remove existing modal if present
+            const existingModal = document.getElementById('dataModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+
+            // Create modal HTML
+            const modalHtml = `
+                <div class="modal fade" id="dataModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">${title}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <pre class="bg-light p-3 rounded"><code>${content}</code></pre>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Add modal to document
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+            // Show the modal
+            const modal = new bootstrap.Modal(document.getElementById('dataModal'));
+            modal.show();
+        }
+
+        // Updated function to handle re-querying with all original data
+        function reQueryData(queryDataStr) {
+            try {
+                // Parse the stringified query data
+                const queryData = JSON.parse(queryDataStr);
+                
+                // Create a form to submit the data
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/bed_generator';
+
+                // Add CSRF token if needed
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+                if (csrfToken) {
+                    const csrfInput = document.createElement('input');
+                    csrfInput.type = 'hidden';
+                    csrfInput.name = 'csrf_token';
+                    csrfInput.value = csrfToken;
+                    form.appendChild(csrfInput);
+                }
+
+                // Add all query parameters as hidden inputs
+                Object.entries(queryData).forEach(([key, value]) => {
+                    // Skip null, undefined, or empty values
+                    if (value == null || value === '') return;
+                    
+                    // Create input for each parameter
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = key;
+                    input.value = typeof value === 'object' ? JSON.stringify(value) : value;
+                    form.appendChild(input);
+                });
+
+                // Add the form to the document and submit
+                document.body.appendChild(form);
+                form.submit();
+            } catch (error) {
+                console.error('Error processing query data:', error);
+                alert('Failed to re-run query. Please try again.');
+            }
+        }
+
+        // Update the showInputDetails function
+        function showInputDetails(type, dataStr) {
+            try {
+                const data = JSON.parse(dataStr);
+                let title = type === 'coordinates' ? 'Coordinate List' : 'Identifier List';
+                let content = '';
+
+                if (type === 'coordinates') {
+                    content = data.coordinates || 'No coordinates specified';
+                } else {
+                    content = data.identifiers || 'No identifiers specified';
+                }
+
+                if (content === '') {
+                    content = `No ${type} specified`;
+                }
+
+                // Format content as a list if it's multiple items
+                const contentArray = Array.isArray(content) ? content : content.split('\n');
+                const formattedList = contentArray
+                    .filter(item => item.trim())
+                    .map(item => item.trim())
+                    .join('\n');
+
+                const formattedContent = `
+                    <div class="input-details-container">
+                        <pre class="data-display-box"><code class="data-content">${formattedList}</code></pre>
+                        <div class="copy-button-container">
+                            <button class="btn btn-sm btn-outline-secondary copy-btn" onclick="copyToClipboard(this)">
+                                <i class="bi bi-clipboard"></i> Copy to clipboard
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                showDataModal(title, formattedContent);
+            } catch (error) {
+                console.error('Error processing data:', error);
+                showDataModal(type === 'coordinates' ? 'Coordinate List' : 'Identifier List', 'Error processing data');
+            }
+        }
+
+        // Update the copyToClipboard function
+        function copyToClipboard(button, elementId) {
+            const content = document.querySelector('.data-content').textContent;
+            navigator.clipboard.writeText(content).then(() => {
+                const originalHTML = button.innerHTML;
+                button.innerHTML = '<i class="bi bi-check"></i> Copied!';
+                button.disabled = true;
+                setTimeout(() => {
+                    button.innerHTML = originalHTML;
+                    button.disabled = false;
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+                alert('Failed to copy to clipboard');
+            });
+        }
+    </script>
+{% endblock %}

@@ -1,0 +1,16 @@
+.env
+app/bed_generator/__pycache__/
+*.pyc
+*.db
+transcript.db
+flask_session/
+env/
+beds/
+sort.py
+logs/
+check.py
+sort.py
+.coverage
+.coverage.*
+extract.py
+db_data/app.db

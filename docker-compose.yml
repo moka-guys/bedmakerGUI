@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    command: /app/entrypoint.sh
+    volumes:
+      - .:/app
+      - ./app.db:/app/app.db # Added to ensure data persistance
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_APP=run.py
+      - FLASK_ENV=development
+      - SECRET_KEY=${SECRET_KEY}
+      - DATABASE_URL=sqlite:////app/app.db
+      - DRAFT_BED_FILES_DIR=/app/draft_bedfiles
+    env_file:
+      - .env

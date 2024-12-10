@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block title %}User Management{% endblock %}
+
+{% block content %}
+    <!-- Page Title Card -->
+    <div class="card shadow-sm mb-4" style="background-color: #f8f9fa; margin-top: 20px;">
+        <div class="card-body text-center" style="background-color: #fafafa;">
+            <h4 class="my-1 page-title">User Management</h4>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4" style="background-color: #f8f9fa;">
+        <div class="card-body">
+            <h4 class="mt-2 mb-3">Create New User</h4>
+            <form action="{{ url_for('auth.create_user') }}" method="POST" class="mb-4"><hr>
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <input type="text" class="form-control" id="username" name="username" required>
+                </div>
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email</label>
+                    <input type="email" class="form-control" id="email" name="email" required>
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" class="form-control" id="password" name="password" required>
+                </div>
+                <div class="mb-3">
+                    <label for="job_role" class="form-label">Job Role</label>
+                    <select class="form-control" id="job_role" name="job_role" required>
+                        <option value="">Select a job role</option>
+                        <option value="Bioinformatics">Bioinformatics</option>
+                        <option value="Cancer Team">Cancer Team</option>
+                        <option value="Rare Disease Team">Rare Disease Team</option>
+                    </select>
+                </div>
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="is_authorizer" name="is_authorizer">
+                    <label class="form-check-label" for="is_authorizer">Make this user an authoriser</label>
+                </div>
+                <button type="submit" class="btn btn-primary">Create User</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4" style="background-color: #f8f9fa;">
+        <div class="card-body">
+            <h4 class="mt-2 mb-3">Existing Users</h4><hr>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Job Role</th>
+                        <th>Authoriser?</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                        <tr>
+                            <td>{{ user.username }}</td>
+                            <td>{{ user.email }}</td>
+                            <td>{{ user.role }}</td>
+                            <td>{{ 'Yes' if user.is_authorizer else 'No' }}</td>
+                            <td>
+                                <form action="{{ url_for('auth.set_authorizer', user_id=user.id) }}" method="POST" class="d-inline">
+                                    <input type="hidden" name="is_authorizer" value="{{ 'false' if user.is_authorizer else 'true' }}">
+                                    <button type="submit" class="btn btn-sm {{ 'btn-danger' if user.is_authorizer else 'btn-success' }}">
+                                        {{ 'Remove Authorizer' if user.is_authorizer else 'Make Authorizer' }}
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endblock %}

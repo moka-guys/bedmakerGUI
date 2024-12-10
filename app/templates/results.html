@@ -1,0 +1,428 @@
+{% extends 'base.html' %}
+
+{% block title %}Results{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column">
+    <!-- Page Title Card -->
+    <div class="card shadow-sm mb-4" style="background-color: #f8f9fa;">
+        <div class="card-body text-center" style="background-color: #fafafa;">
+            <h3 class="my-1 page-title">Results</h3>
+        </div>
+    </div>
+
+    <div class="flex-grow-1">
+        {% if results %}
+            <!-- New Alert Section for Identifiers with No Data -->
+            {% if no_data_identifiers %}
+            <div class="alert alert-warning" role="alert">
+                <strong>Alert:</strong> No data found for the following identifiers: {{ no_data_identifiers|join(', ') }}
+            </div>
+            {% endif %}
+
+            <!-- New Alert Section for Overlapping Genes -->
+            {% set overlapping_alerts = [] %}
+            {% for result in results %}
+                {% if result.alert and result.alert not in overlapping_alerts %}
+                    {% do overlapping_alerts.append(result.alert) %}
+                {% endif %}
+            {% endfor %}
+            {% for alert in overlapping_alerts %}
+            <div class="alert alert-warning" role="alert">
+                <strong>Alert:</strong> {{ alert }}
+            </div>
+            {% endfor %}
+
+            <!-- Results Card -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>
+                        <i class="fa-solid fa-file-import" style="padding-right: 10px;"></i>BED File Contents
+                        <small style="font-size: 0.8em; color: #6c757d;"><i><br>IGV will automatically update when you click on a field.</i></small>
+                    </span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto; overflow-x: auto;">
+                        <table class="table table-bordered table-striped mb-0">
+                            <thead>
+                                <tr>
+                                    <th>
+                                        Chromosome
+                                    </th>
+                                    <th>Start</th>
+                                    <th>End</th>
+                                    <th>EntrezID</th>
+                                    <th>Gene</th>
+                                    <th>Accession</th>
+                                    <th>Exon ID</th>
+                                    <th>Exon Number</th>
+                                    <th>Transcript Biotype</th>
+                                    <th>Ensembl Transcript ID</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for result in results %}
+                                    <tr onclick="setActiveRow(this, {{ loop.index0 }})">
+                                        <td>{{ result.loc_region }}</td>
+                                        <td>{{ result.loc_start }}</td>
+                                        <td>{{ result.loc_end }}</td>
+                                        <td>{{ result.entrez_id }}</td>
+                                        <td style="background-color: #d4edda;">{{ result.gene }}</td>
+                                        <td>{{ result.accession }}</td>
+                                        <td>{{ result.exon_id }}</td>
+                                        <td>{{ result.exon_number }}</td>
+                                        <td>{{ result.transcript_biotype }}</td>
+                                        <td>{{ result.mane_transcript }}</td>
+                                        <td>
+                                            {% if result.warning %}
+                                                {% if result.warning.type == 'version_specified' %}
+                                                    <span class="badge bg-success text-white">
+                                                        <i class="fas fa-check"></i> {{ result.warning.message }}
+                                                    </span>
+                                                {% elif result.warning.type == 'transcript_selection' %}
+                                                    <span class="badge bg-info text-white">
+                                                        <i class="fas fa-info-circle"></i> GRCh38 MANE SELECT equivalent
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge bg-warning text-dark">
+                                                        <i class="fas fa-exclamation-triangle"></i> 
+                                                        {{ result.warning.message if result.warning is mapping else result.warning }}
+                                                    </span>
+                                                {% endif %}
+                                            {% else %}
+                                                {% if result.is_snp %}
+                                                    <span class="badge bg-info text-white">
+                                                        <i class="fas fa-dna"></i> SNP
+                                                    </span>
+                                                {% elif result.mane_transcript_type == 'MANE Plus Clinical' %}
+                                                    <span class="badge bg-primary text-white">
+                                                        <i class="fas fa-plus-circle"></i> MANE Plus Clinical
+                                                    </span>
+                                                {% elif result.mane_transcript_type == 'MANE Select' %}
+                                                    <span class="badge bg-success text-white">
+                                                        <i class="fas fa-check"></i> MANE Select
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge bg-success text-white">
+                                                        <i class="fas fa-check"></i> Transcript verified
+                                                    </span>
+                                                {% endif %}
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Add chr prefix toggle below the table -->
+                    <div class="p-2 border-top">
+                        <div class="form-check form-switch d-inline-flex align-items-center">
+                            <input type="checkbox" class="form-check-input" id="addChrPrefix" role="switch" onchange="toggleChrPrefix()">
+                            <label class="form-check-label ms-2" for="addChrPrefix">
+                                <small style="font-size: 0.8em; color: #6c757d;">Add chr prefix to chromosome numbers</small>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- IGV Viewer Card -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    IGV Viewer
+                </div>
+                <div class="card-body">
+                    <div id="igv-div" style="padding-top: 10px; padding-bottom: 10px; border:1px solid lightgray"></div>
+                    <div class="mt-3 d-flex justify-content-between">
+                        <div>
+                            <input type="file" id="bedFileUpload" accept=".bed" style="display: none;">
+                            <label for="bedFileUpload" class="btn btn-primary mt-2">Upload existing BED File for comparison</label>
+                            <span id="comparisonResult" class="ms-3"></span> <!-- Placeholder for comparison results -->
+                        </div>
+                        <select id="genome-select" class="form-select d-inline-block w-auto ml-2" onchange="changeGenome()">
+                            <option value="hg38" {% if assembly == 'GRCh38' %}selected{% endif %}>hg38</option>
+                            <option value="hg19" {% if assembly == 'GRCh37' %}selected{% endif %}>hg19</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Download and Navigation Buttons -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-download" style="padding-right: 10px;"></i>Options
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Buttons section first -->
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <a href="{{ url_for('bed_generator.index') }}" class="btn btn-secondary">
+                            <i class="bi bi-skip-backward"></i> Back
+                        </a>
+                        
+                        <div class="d-flex gap-4">
+                            <div class="btn-group">
+                                <button class="btn btn-success" onclick="downloadRawBed()">
+                                    <i class="bi bi-download"></i> Download BED
+                                </button>
+                            </div>
+
+                            <div class="btn-group">
+                                <button class="btn btn-primary dropdown-toggle" type="button" id="customBedDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="bi bi-gear-fill"></i> Custom BED Files
+                                </button>
+                                <i class="fas fa-info-circle ms-2" 
+                                   style="color: #6c757d; cursor: pointer;" 
+                                   onclick="showBedFlowDiagram()"
+                                   data-bs-toggle="tooltip" 
+                                   data-bs-placement="top"
+                                   title="Click for information about BED file generation">
+                                </i>
+                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="customBedDropdown">
+                                    <li><small class="dropdown-header text-muted px-3">Custom BED settings configured in Settings</small></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <a class="dropdown-item" href="#" onclick="downloadCustomBed('data')" data-bs-toggle="tooltip" 
+                                           data-bs-html="true" title="
+                                           <div style='text-align: left;'>
+                                               Padding: {{ settings.data_padding }}bp<br>
+                                               SNP Padding: {{ settings.data_snp_padding }}bp<br>
+                                               5' UTR: {% if settings.data_include_5utr %}
+                                                   <i class='fas fa-check-circle text-success'></i>
+                                               {% else %}
+                                                   <i class='fas fa-times-circle text-danger'></i>
+                                               {% endif %}<br>
+                                               3' UTR: {% if settings.data_include_3utr %}
+                                                   <i class='fas fa-check-circle text-success'></i>
+                                               {% else %}
+                                                   <i class='fas fa-times-circle text-danger'></i>
+                                               {% endif %}
+                                           </div>">.data</a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="#" onclick="downloadCustomBed('sambamba')" data-bs-toggle="tooltip" 
+                                           data-bs-html="true" title="
+                                           <div style='text-align: left;'>
+                                               Padding: {{ settings.sambamba_padding }}bp<br>
+                                               SNP Padding: {{ settings.sambamba_snp_padding }}bp<br>
+                                               5' UTR: {% if settings.sambamba_include_5utr %}
+                                                   <i class='fas fa-check-circle text-success'></i>
+                                               {% else %}
+                                                   <i class='fas fa-times-circle text-danger'></i>
+                                               {% endif %}<br>
+                                               3' UTR: {% if settings.sambamba_include_3utr %}
+                                                   <i class='fas fa-check-circle text-success'></i>
+                                               {% else %}
+                                                   <i class='fas fa-times-circle text-danger'></i>
+                                               {% endif %}
+                                           </div>">.sambamba</a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="#" onclick="downloadCustomBed('exomeDepth')" data-bs-toggle="tooltip" 
+                                           data-bs-html="true" title="
+                                           <div style='text-align: left;'>
+                                               Padding: {{ settings.exomeDepth_padding }}bp<br>
+                                               SNP Padding: {{ settings.exomeDepth_snp_padding }}bp<br>
+                                               5' UTR: {% if settings.exomeDepth_include_5utr %}
+                                                   <i class='fas fa-check-circle text-success'></i>
+                                               {% else %}
+                                                   <i class='fas fa-times-circle text-danger'></i>
+                                               {% endif %}<br>
+                                               3' UTR: {% if settings.exomeDepth_include_3utr %}
+                                                   <i class='fas fa-check-circle text-success'></i>
+                                               {% else %}
+                                                   <i class='fas fa-times-circle text-danger'></i>
+                                               {% endif %}
+                                           </div>">.exomeDepth</a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="#" onclick="downloadCustomBed('cnv')" data-bs-toggle="tooltip" 
+                                           data-bs-html="true" title="
+                                           <div style='text-align: left;'>
+                                               Padding: {{ settings.cnv_padding }}bp<br>
+                                               SNP Padding: {{ settings.cnv_snp_padding }}bp<br>
+                                               5' UTR: {% if settings.cnv_include_5utr %}
+                                                   <i class='fas fa-check-circle text-success'></i>
+                                               {% else %}
+                                                   <i class='fas fa-times-circle text-danger'></i>
+                                               {% endif %}<br>
+                                               3' UTR: {% if settings.cnv_include_3utr %}
+                                                   <i class='fas fa-check-circle text-success'></i>
+                                               {% else %}
+                                                   <i class='fas fa-times-circle text-danger'></i>
+                                               {% endif %}
+                                           </div>">.cnv</a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-danger" onclick="showSubmitModal()" data-index-url="{{ url_for('bed_generator.index') }}">
+                            <i class="bi bi-pen"></i> Submit for Review
+                        </button>
+                    </div>
+
+                    <!-- Horizontal divider -->
+                    <hr>
+                    <!-- Modifications section below -->
+                    <div class="mt-3">
+                        <div class="d-flex align-items-center mb-2">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                These modifications only apply to the base BED file download. Custom BED profile settings are managed in Settings.
+                            </small>
+                        </div>
+                        <div class="d-flex flex-wrap gap-4 align-items-center">
+                            <div class="form-check form-check-inline mb-0">
+                                <input class="form-check-input" type="checkbox" id="showPaddingAdjustment">
+                                <label class="form-check-label text-muted" for="showPaddingAdjustment">
+                                    <small style="font-size: 0.8em; color: #6c757d;">Show padding options</small>
+                                </label>
+                            </div>
+                            
+                            <div class="form-check form-switch d-inline-flex align-items-center">
+                                <input type="checkbox" class="form-check-input" id="include5UTR" role="switch" onchange="toggleUTR('5')">
+                                <label class="form-check-label ms-2" for="include5UTR">
+                                    <small style="font-size: 0.8em; color: #6c757d;">5' UTR</small>
+                                </label>
+                            </div>
+
+                            <div class="form-check form-switch d-inline-flex align-items-center">
+                                <input type="checkbox" class="form-check-input" id="include3UTR" role="switch" onchange="toggleUTR('3')">
+                                <label class="form-check-label ms-2" for="include3UTR">
+                                    <small style="font-size: 0.8em; color: #6c757d;">3' UTR</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Padding Adjustment Section (initially hidden) -->
+            <div id="paddingAdjustmentSection" class="card shadow-sm mb-4" style="display: none; margin-top: 20px;">
+                <div class="card-header">
+                    <i class="fas fa-cog" style="padding-right: 10px;"></i> Adjust BED Padding
+                    <small style="font-size: 0.8em; color: #6c757d;"><i><br>Note: These padding adjustments only apply to the Base BED file. Custom BED file padding is managed in Settings.</i></small>
+                </div>
+                <div class="card-body" style="padding-top: 10px; padding-bottom: 10px;">
+                    <div class="mb-3">
+                        <label for="paddingInput5" class="form-label">5' Padding (bp)</label>
+                        <input type="number" class="form-control" id="paddingInput5" value="0">
+                    </div>
+                    <div class="mb-3">
+                        <label for="paddingInput3" class="form-label">3' Padding (bp)</label>
+                        <input type="number" class="form-control" id="paddingInput3" value="0">
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="separateSnpPadding">
+                            <label class="form-check-label" for="separateSnpPadding">
+                                Use separate padding for SNPs
+                            </label>
+                        </div>
+                        <div id="snpPaddingInputs" style="display: none;">
+                            <hr>
+                            <label for="snpPadding5" class="form-label">SNP 5' Padding (bp)</label>
+                            <input type="number" class="form-control" id="snpPadding5" value="0">
+                            <label for="snpPadding3" class="form-label">SNP 3' Padding (bp)</label>
+                            <input type="number" class="form-control" id="snpPadding3" value="0">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="applyPadding()">Apply Padding</button>
+                </div>
+            </div>
+
+            <!-- JavaScript to toggle visibility -->
+            <script>
+                document.getElementById('showPaddingAdjustment').addEventListener('change', function() {
+                    var paddingSection = document.getElementById('paddingAdjustmentSection');
+                    paddingSection.style.display = this.checked ? 'block' : 'none';
+                });
+            </script>
+
+            <textarea id="bedContent" style="display: none;">{{ results | tojson }}</textarea>
+
+            <!-- Simplify the modal for file name input -->
+            <div class="modal fade" id="submitModal" tabindex="-1" aria-labelledby="submitModalLabel" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="submitModalLabel">Submit BED File for Review</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="bedFileName" class="form-label">Enter a name for your new BED file:</label>
+                                <input type="text" class="form-control" id="bedFileName" required>
+                            </div>
+                            <div class="form-check mb-3">
+                                <input type="checkbox" class="form-check-input" id="baseOnly">
+                                <label class="form-check-label" for="baseOnly">
+                                    Submit base BED only (skip custom BED types)
+                                </label>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-primary" onclick="submitForReview()">Submit</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Unique Regions Modal -->
+            <div class="modal fade" id="uniqueRegionsModal" tabindex="-1" aria-labelledby="uniqueRegionsModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="uniqueRegionsModalLabel">Unique Regions</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <ul id="uniqueRegionsList" class="list-group"></ul>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MANE Plus Clinical Selection Modal -->
+            <div class="modal fade" id="maneSelectionModal" tabindex="-1" aria-labelledby="maneSelectionModalLabel" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="maneSelectionModalLabel">Select MANE Transcript</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p>Multiple transcripts are available for this gene. Please select which transcript you would like to use:</p>
+                            <div id="transcriptOptions"></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-primary" onclick="applyTranscriptSelection()">Apply Selection</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- EXTERNAL JS -->
+            <script src="https://cdn.jsdelivr.net/npm/igv@2.10.5/dist/igv.min.js"></script>
+            <script src="{{ url_for('static', filename='js/results.js') }}"></script>
+            <input type="hidden" id="initialQuery" value="{{ initial_query | tojson | safe }}">
+            <script>
+                var initialQuery = {{ initial_query | safe }};
+            </script>
+        {% else %}
+            <p>No results found.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block head %}
+{{ super() }}
+{% endblock %}
