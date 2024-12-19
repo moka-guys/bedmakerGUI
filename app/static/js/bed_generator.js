@@ -94,6 +94,9 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('An unexpected error occurred.');
         });
     });
+
+    // Add event listener for file input
+    document.getElementById('senseCheckFile').addEventListener('change', handleSenseCheckFile);
 });
 
 // Other functions
@@ -315,7 +318,27 @@ function handleSenseCheckFile(event) {
     if (file) {
         const reader = new FileReader();
         reader.onload = function(e) {
-            document.getElementById('senseCheckInput').value = e.target.result;
+            const contents = e.target.result;
+            // Split into lines and filter out empty lines
+            const lines = contents.split(/\r?\n/).filter(line => line.trim());
+            
+            // Check if first line is a header
+            let startIndex = 0;
+            if (lines[0].toLowerCase().includes('gene') && lines[0].toLowerCase().includes('transcript')) {
+                startIndex = 1;
+            }
+            
+            // Process remaining lines
+            const formattedLines = lines.slice(startIndex)
+                .map(line => {
+                    // Handle both comma and tab delimited files
+                    const parts = line.includes('\t') ? line.split('\t') : line.split(',');
+                    return `${parts[0].trim()},${parts[1].trim()}`;
+                })
+                .filter(line => line.includes(','));  // Filter out invalid lines
+            
+            // Update textarea with formatted content
+            document.getElementById('senseCheckInput').value = formattedLines.join('\n');
         };
         reader.readAsText(file);
     }
@@ -441,6 +464,3 @@ function addValidTranscripts() {
     const modal = bootstrap.Modal.getInstance(document.getElementById('senseCheckModal'));
     modal.hide();
 }
-
-// Add event listener for file input
-document.getElementById('senseCheckFile').addEventListener('change', handleSenseCheckFile);

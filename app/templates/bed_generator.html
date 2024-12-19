@@ -123,7 +123,7 @@
                     {{ form.csvFile(class="form-control", id="csvFile", accept=".csv,.txt") }}
                 </div>
                 <button type="button" class="btn btn-info btn-sm" onclick="openSenseCheckModal()">
-                    <i class="fas fa-check-circle"></i> Sense Check Gene/Transcript relationships
+                    <i class="fas fa-check-circle"></i> Ensembl Gene/Transcript sense check
                 </button>
             </div>
         </div>
@@ -148,12 +148,29 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
+                    <!-- Add explainer section -->
+                    <div class="alert alert-info mb-4">
+                        <h6 class="alert-heading mb-2">
+                            <i class="fas fa-info-circle me-2"></i>What does this tool do?
+                        </h6>
+                        <p class="mb-2">This tool verifies that transcript IDs match their expected genes by:</p>
+                        <ol class="mb-2">
+                            <li>Taking a list of gene,transcript_id pairs</li>
+                            <li>Querying Ensembl's REST API to check which gene each transcript belongs to</li>
+                            <li>Comparing the expected gene with the actual gene</li>
+                        </ol>
+                        <p class="mb-0">
+                            <small><i class="fas fa-lightbulb me-1"></i>Useful for catching transcript ID errors before generating BED files.</small>
+                        </p>
+                    </div>
+
+                    <!-- Existing modal content -->
                     <div class="mb-3">
                         <label class="form-label">Paste gene,transcript_id pairs:</label>
                         <textarea class="form-control" id="senseCheckInput" rows="5" placeholder="gene,transcript_id&#10;TP53,NM_000546.5"></textarea>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Or upload a CSV file:</label>
+                        <label class="form-label">Or upload a CSV file (please ensure gene,transcript_id headers are present):</label>
                         <input type="file" class="form-control" id="senseCheckFile" accept=".csv">
                     </div>
                     <div id="progressIndicator" class="alert alert-info d-none">
