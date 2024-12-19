@@ -42,6 +42,7 @@ import requests
 import os
 import concurrent.futures
 from typing import List, Dict, Tuple
+from app.bed_generator.sensecheck import TranscriptFetcher
 
 def fetch_panels_from_panelapp():
     """
@@ -560,6 +561,12 @@ def adjust_utrs():
             'error': str(e)
         }), 500
 
+@bed_generator_bp.route('/store_no_data', methods=['POST'])
+def store_no_data():
+    data = request.get_json()
+    session['no_data_identifiers'] = data.get('no_data_identifiers', [])
+    return jsonify({'success': True})
+
 def process_bed_entry(
     entry: Dict,
     settings: Dict[str, bool],
@@ -659,3 +666,44 @@ def process_bed_entries(
             processed_entries.append(processed)
             
     return processed_entries
+
+@bed_generator_bp.route('/sense_check', methods=['POST'])
+def sense_check():
+    """
+    Check if transcript IDs match their expected genes.
+    """
+    try:
+        data = request.get_json()
+        pairs = data.get('pairs', [])
+        
+        # Initialize TranscriptFetcher with current assembly
+        assembly = 'GRCh38'  # You might want to make this configurable
+        fetcher = TranscriptFetcher(assembly)
+        
+        results = []
+        for pair in pairs:
+            transcript_id = pair['transcript']
+            expected_gene = pair['gene']
+            
+            # Fetch actual gene symbol
+            actual_gene = fetcher.fetch_gene_symbol(transcript_id)
+            
+            results.append({
+                'transcript': transcript_id,
+                'expected_gene': expected_gene,
+                'actual_gene': actual_gene,
+                'match': actual_gene and actual_gene.upper() == expected_gene.upper(),
+                'gene': expected_gene
+            })
+        
+        return jsonify({
+            'success': True,
+            'results': results
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error in sense_check: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

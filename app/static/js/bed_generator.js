@@ -302,3 +302,91 @@ document.getElementById('bedGeneratorForm').addEventListener('submit', function(
     buttonText.textContent = 'Generating...';
     buttonSpinner.classList.remove('d-none');
 });
+
+function openSenseCheckModal() {
+    const modal = new bootstrap.Modal(document.getElementById('senseCheckModal'));
+    modal.show();
+}
+
+function handleSenseCheckFile(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('senseCheckInput').value = e.target.result;
+        };
+        reader.readAsText(file);
+    }
+}
+
+function performSenseCheck() {
+    const input = document.getElementById('senseCheckInput').value.trim();
+    if (!input) {
+        alert('Please enter or upload data to check');
+        return;
+    }
+
+    // Parse input
+    const lines = input.split('\n');
+    const pairs = lines.map(line => {
+        const [gene, transcript] = line.split(',').map(s => s.trim());
+        return { gene, transcript };
+    });
+
+    // Validate format
+    if (!pairs.every(p => p.gene && p.transcript)) {
+        alert('Invalid format. Each line must contain gene,transcript_id');
+        return;
+    }
+
+    // Update UI
+    const button = document.querySelector('#senseCheckModal .btn-primary');
+    const spinner = button.querySelector('.spinner-border');
+    const buttonText = button.querySelector('.button-text');
+    const resultsDiv = document.getElementById('senseCheckResults');
+
+    button.disabled = true;
+    spinner.classList.remove('d-none');
+    buttonText.textContent = 'Checking...';
+    resultsDiv.innerHTML = '<div class="text-center">Processing...</div>';
+
+    // Send request
+    fetch('/bed_generator/sense_check', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ pairs })
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Display results
+        let html = '<div class="list-group">';
+        data.results.forEach(result => {
+            const statusClass = result.match ? 'list-group-item-success' : 'list-group-item-danger';
+            const icon = result.match ? 'check-circle' : 'times-circle';
+            html += `
+                <div class="list-group-item ${statusClass}">
+                    <i class="fas fa-${icon}"></i>
+                    <strong>${result.transcript}</strong>: 
+                    ${result.match ? 
+                        `Matches ${result.gene}` : 
+                        `Expected ${result.expected_gene}, got ${result.actual_gene || 'no match'}`
+                    }
+                </div>`;
+        });
+        html += '</div>';
+        resultsDiv.innerHTML = html;
+    })
+    .catch(error => {
+        resultsDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+    })
+    .finally(() => {
+        button.disabled = false;
+        spinner.classList.add('d-none');
+        buttonText.textContent = 'Check Transcripts';
+    });
+}
+
+// Add event listener for file input
+document.getElementById('senseCheckFile').addEventListener('change', handleSenseCheckFile);
