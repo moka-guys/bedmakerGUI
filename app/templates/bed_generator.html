@@ -144,27 +144,25 @@
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Transcript/Gene Sense Check</h5>
+                    <h5 class="modal-title">Validate Transcript/Gene relations with Ensembl</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <!-- Add explainer section -->
                     <div class="alert alert-info mb-4">
                         <h6 class="alert-heading mb-2">
-                            <i class="fas fa-info-circle me-2"></i>What does this tool do?
+                            <i class="fas fa-info-circle me-2"></i>What does this do?
                         </h6>
-                        <p class="mb-2">This tool verifies that transcript IDs match their expected genes by:</p>
+                        <p class="mb-2">This tool is designed for catching transcript ID/gene mismatch errors before generating BED files.</p>
+                        <p class="mb-2">It uses the Ensembl REST API "lookup" endpoint to:</p>
                         <ol class="mb-2">
-                            <li>Taking a list of gene,transcript_id pairs</li>
-                            <li>Querying Ensembl's REST API to check which gene each transcript belongs to</li>
-                            <li>Comparing the expected gene with the actual gene</li>
+                            <li>Take a list of gene,transcript_id pairs</li>
+                            <li>Query the API to check which gene each transcript belongs to</li>
+                            <li>Compare the expected gene from the list with the actual gene provided by the API</li>
                         </ol>
-                        <p class="mb-0">
-                            <small><i class="fas fa-lightbulb me-1"></i>Useful for catching transcript ID errors before generating BED files.</small>
-                        </p>
                     </div>
 
-                    <!-- Existing modal content -->
+                    <!-- Input section -->
                     <div class="mb-3">
                         <label class="form-label">Paste gene,transcript_id pairs:</label>
                         <textarea class="form-control" id="senseCheckInput" rows="5" placeholder="gene,transcript_id&#10;TP53,NM_000546.5"></textarea>
@@ -179,19 +177,23 @@
                             <span>Processing: <span id="currentTranscript">-</span></span>
                         </div>
                     </div>
-                    <div id="senseCheckResults" class="mt-3">
+                    <!-- Add scrollable results container -->
+                    <div id="senseCheckResults" class="mt-3" style="max-height: 300px; overflow-y: auto;">
                         <!-- Results will be displayed here -->
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-success" onclick="addValidTranscripts()" disabled id="addTranscriptsBtn">
+                    <button type="button" class="btn btn-success me-auto" onclick="addValidTranscripts()" disabled id="addTranscriptsBtn">
                         <i class="fas fa-plus-circle"></i> Add Valid Transcripts
                     </button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-danger me-2 d-none" onclick="downloadFailures()" id="downloadFailuresBtn">
+                        <i class="fas fa-download"></i> Download Failures
+                    </button>
                     <button type="button" class="btn btn-primary" onclick="performSenseCheck()">
                         <span class="button-text">Check Transcripts</span>
                         <span class="spinner-border spinner-border-sm d-none" role="status"></span>
                     </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>

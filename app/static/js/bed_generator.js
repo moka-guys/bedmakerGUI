@@ -389,6 +389,15 @@ function performSenseCheck() {
             spinner.classList.add('d-none');
             buttonText.textContent = 'Check Transcripts';
             addTranscriptsBtn.disabled = false;
+
+            // Show download failures button if there are any failed results
+            const failedRows = document.querySelectorAll('.list-group-item-danger');
+            const downloadFailuresBtn = document.getElementById('downloadFailuresBtn');
+            if (failedRows.length > 0) {
+                downloadFailuresBtn.classList.remove('d-none');
+            } else {
+                downloadFailuresBtn.classList.add('d-none');
+            }
             return;
         }
 
@@ -463,4 +472,39 @@ function addValidTranscripts() {
     // Close the modal
     const modal = bootstrap.Modal.getInstance(document.getElementById('senseCheckModal'));
     modal.hide();
+}
+
+function downloadFailures() {
+    // Get all failed results
+    const failedRows = document.querySelectorAll('.list-group-item-danger');
+    if (failedRows.length === 0) return;
+
+    // Create CSV content
+    let csvContent = "gene,transcript_id,error\n";
+    failedRows.forEach(row => {
+        // Extract the text content and clean it up
+        const text = row.textContent.trim();
+        
+        // Parse out the transcript and expected/actual gene info
+        const transcript = text.match(/\b(NM_\d+\.?\d*|ENST\d+\.?\d*)\b/)?.[0] || '';
+        const expectedGene = text.match(/Expected ([^,]+)/)?.[1] || '';
+        // Capture 'no match' as well as actual genes
+        const actualGene = text.match(/got (.*?)$/)?.[1] || 'no match';
+        
+        // Include the row if we at least have an expected gene
+        if (expectedGene) {
+            csvContent += `${expectedGene},${transcript},"Expected ${expectedGene}, got ${actualGene}"\n`;
+        }
+    });
+
+    // Create and trigger download
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('href', url);
+    a.setAttribute('download', 'failed_transcripts.csv');
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
 }
