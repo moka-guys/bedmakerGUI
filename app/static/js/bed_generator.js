@@ -1,3 +1,5 @@
+let validTranscripts = [];
+
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('bedGeneratorForm');
     const generateButton = document.getElementById('generateButton');
@@ -344,48 +346,100 @@ function performSenseCheck() {
     const spinner = button.querySelector('.spinner-border');
     const buttonText = button.querySelector('.button-text');
     const resultsDiv = document.getElementById('senseCheckResults');
+    const progressIndicator = document.getElementById('progressIndicator');
+    const currentTranscriptSpan = document.getElementById('currentTranscript');
+    const addTranscriptsBtn = document.getElementById('addTranscriptsBtn');
 
     button.disabled = true;
     spinner.classList.remove('d-none');
     buttonText.textContent = 'Checking...';
-    resultsDiv.innerHTML = '<div class="text-center">Processing...</div>';
+    resultsDiv.innerHTML = '';
+    progressIndicator.classList.remove('d-none');
+    validTranscripts = []; // Reset valid transcripts
 
-    // Send request
-    fetch('/bed_generator/sense_check', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ pairs })
-    })
-    .then(response => response.json())
-    .then(data => {
-        // Display results
-        let html = '<div class="list-group">';
-        data.results.forEach(result => {
-            const statusClass = result.match ? 'list-group-item-success' : 'list-group-item-danger';
-            const icon = result.match ? 'check-circle' : 'times-circle';
-            html += `
-                <div class="list-group-item ${statusClass}">
-                    <i class="fas fa-${icon}"></i>
-                    <strong>${result.transcript}</strong>: 
-                    ${result.match ? 
-                        `Matches ${result.gene}` : 
-                        `Expected ${result.expected_gene}, got ${result.actual_gene || 'no match'}`
-                    }
-                </div>`;
-        });
-        html += '</div>';
-        resultsDiv.innerHTML = html;
-    })
-    .catch(error => {
-        resultsDiv.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
-    })
-    .finally(() => {
-        button.disabled = false;
-        spinner.classList.add('d-none');
-        buttonText.textContent = 'Check Transcripts';
-    });
+    // Process each pair sequentially
+    const processNextPair = async (pairs, index = 0) => {
+        if (index >= pairs.length) {
+            // All pairs processed
+            progressIndicator.classList.add('d-none');
+            button.disabled = false;
+            spinner.classList.add('d-none');
+            buttonText.textContent = 'Check Transcripts';
+            addTranscriptsBtn.disabled = false;
+            return;
+        }
+
+        const pair = pairs[index];
+        currentTranscriptSpan.textContent = pair.transcript;
+
+        try {
+            const response = await fetch('/bed_generator/sense_check', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ pairs: [pair] })
+            });
+            const data = await response.json();
+
+            if (data.success && data.results.length > 0) {
+                const result = data.results[0];
+                const statusClass = result.match ? 'list-group-item-success' : 'list-group-item-danger';
+                const icon = result.match ? 'check-circle' : 'times-circle';
+                
+                // Store valid transcripts
+                if (result.match) {
+                    validTranscripts.push(result.transcript);
+                }
+
+                // Append result to the list
+                const resultHtml = `
+                    <div class="list-group-item ${statusClass}">
+                        <i class="fas fa-${icon}"></i>
+                        <strong>${result.transcript}</strong>: 
+                        ${result.match ? 
+                            `Matches ${result.gene}` : 
+                            `Expected ${result.expected_gene}, got ${result.actual_gene || 'no match'}`
+                        }
+                    </div>`;
+                
+                if (!resultsDiv.querySelector('.list-group')) {
+                    resultsDiv.innerHTML = '<div class="list-group"></div>';
+                }
+                resultsDiv.querySelector('.list-group').insertAdjacentHTML('beforeend', resultHtml);
+            }
+        } catch (error) {
+            console.error('Error processing transcript:', error);
+            resultsDiv.insertAdjacentHTML('beforeend', 
+                `<div class="alert alert-danger">Error processing ${pair.transcript}: ${error.message}</div>`
+            );
+        }
+
+        // Process next pair
+        processNextPair(pairs, index + 1);
+    };
+
+    // Start processing
+    processNextPair(pairs);
+}
+
+function addValidTranscripts() {
+    if (validTranscripts.length === 0) {
+        alert('No valid transcripts to add');
+        return;
+    }
+
+    const identifiersField = document.getElementById('identifiers');
+    const currentValue = identifiersField.value.trim();
+    const newValue = currentValue ? 
+        currentValue + ', ' + validTranscripts.join(', ') :
+        validTranscripts.join(', ');
+    
+    identifiersField.value = newValue;
+    
+    // Close the modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('senseCheckModal'));
+    modal.hide();
 }
 
 // Add event listener for file input
