@@ -43,7 +43,7 @@ class BedGenerator:
         },
         'cnv': {
             'fields': [
-                lambda r, _: str(r['entrez_id'])
+                lambda r, _: f"{r['gene']};{r['accession']}"
             ]
         }
     }
